@@ -779,6 +779,23 @@ static void janus_request_ice_handle_answer(janus_ice_handle *handle, int audio,
 	}
 }
 
+int janus_process_incoming_request_mytest(janus_request *request) {
+	int ret = -1;
+	int error_code = 0;
+	char error_cause[100];
+
+	json_t *root = request->message;
+	/* Ok, let's start with the ids */
+	guint64 session_id = 0, handle_id = 0;
+
+	json_t *transaction = json_object_get(root, "transaction");
+	const gchar *transaction_text = json_string_value(transaction);
+	json_t *message = json_object_get(root, "janus");
+	const gchar *message_text = json_string_value(message);
+	return ret;
+}
+
+
 int janus_process_incoming_request(janus_request *request) {
 	int ret = -1;
 	if(request == NULL) {
@@ -796,6 +813,11 @@ int janus_process_incoming_request(janus_request *request) {
 	json_t *h = json_object_get(root, "handle_id");
 	if(h && json_is_integer(h))
 		handle_id = json_integer_value(h);
+
+	json_t *p = json_object_get(root, "userdata");
+	if (p){
+		return janus_process_incoming_request_mytest(request);
+	}
 
 	janus_session *session = NULL;
 	janus_ice_handle *handle = NULL;
