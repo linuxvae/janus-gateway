@@ -1124,7 +1124,7 @@ int janus_process_incoming_request(janus_request *request) {
 			/* Check the JSEP type */
 			janus_mutex_lock(&handle->mutex);
 			int offer = 0;
-			if(!strcasecmp(jsep_type, "offer")) {
+			if(!strcasecmp(jsep_type, "offer"))  {
 				offer = 1;
 				janus_flags_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
 				janus_flags_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_GOT_OFFER);
