@@ -77,6 +77,8 @@ typedef struct janus_session {
  * @param[in] session_id The desired Janus Core-Client session ID, or 0 if it needs to be generated randomly
  * @returns The created Janus Core-Client session if successful, NULL otherwise */
 janus_session *janus_session_create(guint64 session_id);
+janus_session *janus_session_create_srtc(guint64 session_id, char *username);
+
 /*! \brief Method to find an existing Janus Core-Client session from its ID
  * @param[in] session_id The Janus Core-Client session ID
  * @returns The created Janus Core-Client session if successful, NULL otherwise */

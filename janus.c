@@ -81,6 +81,7 @@ static char *api_secret = NULL, *admin_api_secret = NULL;
 
 /* JSON parameters */
 static int janus_process_error_string(janus_request *request, uint64_t session_id, const char *transaction, gint error, gchar *error_string);
+static int janus_process_srtc_error_string(janus_request *request, uint64_t session_id, const char *transaction, gint error, gchar *error_string);
 
 static struct janus_json_parameter incoming_request_srtc_parameters[] = {
 	{"transaction", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
