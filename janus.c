@@ -82,6 +82,17 @@ static char *api_secret = NULL, *admin_api_secret = NULL;
 /* JSON parameters */
 static int janus_process_error_string(janus_request *request, uint64_t session_id, const char *transaction, gint error, gchar *error_string);
 
+static struct janus_json_parameter incoming_request_srtc_parameters[] = {
+	{"transaction", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
+	{"srtc", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
+	{"username", JSON_STRING, JANUS_JSON_PARAM_REQUIRED}
+};
+static struct janus_json_parameter register_srtc_parameters[] = {
+	{"username", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
+	{"password", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
+	{"appkey", JSON_STRING, JANUS_JSON_PARAM_REQUIRED}
+};
+
 static struct janus_json_parameter incoming_request_parameters[] = {
 	{"transaction", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
 	{"janus", JSON_STRING, JANUS_JSON_PARAM_REQUIRED},
@@ -185,6 +196,16 @@ static json_t *janus_create_message(const char *status, uint64_t session_id, con
 		json_object_set_new(msg, "transaction", json_string(transaction));
 	return msg;
 }
+static json_t *janus_create_srtc_message(const char *status, uint64_t session_id, const char *transaction) {
+	json_t *msg = json_object();
+	json_object_set_new(msg, "srtc", json_string(status));
+	if(session_id > 0)
+		json_object_set_new(msg, "session_id", json_integer(session_id));
+	if(transaction != NULL)
+		json_object_set_new(msg, "transaction", json_string(transaction));
+	return msg;
+}
+
 
 /* The default timeout for sessions is 60 seconds: this means that, if
  * we don't get any activity (i.e., no request) on this session for more
@@ -444,6 +465,7 @@ static janus_callbacks janus_handler_plugin =
 /* Core Sessions */
 static janus_mutex sessions_mutex;
 static GHashTable *sessions = NULL;
+static GHashTable *name_sessions = NULL; //用于快速通过name查找session
 static GMainContext *sessions_watchdog_context = NULL;
 
 
@@ -463,6 +485,13 @@ static void janus_session_free(const janus_refcount *session_ref) {
 		janus_request_destroy(session->source);
 		session->source = NULL;
 	}
+	
+	janus_mutex_lock(&sessions_mutex);
+	g_hash_table_remove(name_sessions, &session->username); //函数调用不要锁两次
+	janus_mutex_unlock(&sessions_mutex);
+	
+	if(session->username)
+		g_free(session->username);
 	g_free(session);
 }
 
@@ -531,6 +560,10 @@ static gpointer janus_sessions_watchdog(gpointer user_data) {
 
 
 janus_session *janus_session_create(guint64 session_id) {
+	return janus_session_create_srtc(session_id, NULL);
+}
+janus_session *janus_session_create_srtc(guint64 session_id, char *username) {
+
 	janus_session *session = NULL;
 	if(session_id == 0) {
 		while(session_id == 0) {
@@ -553,10 +586,15 @@ janus_session *janus_session_create(guint64 session_id) {
 	g_atomic_int_set(&session->transport_gone, 0);
 	session->last_activity = janus_get_monotonic_time();
 	session->ice_handles = NULL;
+	if(session->username)
+		session->username = g_strdup(session->username);
 	janus_mutex_init(&session->mutex);
 	janus_mutex_lock(&sessions_mutex);
 	g_hash_table_insert(sessions, janus_uint64_dup(session->session_id), session);
+	if(session->username)
+		g_hash_table_insert(name_sessions, g_strdup(session->username), session);
 	janus_mutex_unlock(&sessions_mutex);
+	
 	return session;
 }
 
@@ -571,6 +609,18 @@ janus_session *janus_session_find(guint64 session_id) {
 	janus_mutex_unlock(&sessions_mutex);
 	return session;
 }
+janus_session *janus_session_find_by_username(gchar *username) {
+	janus_mutex_lock(&sessions_mutex);
+	janus_session *session = g_hash_table_lookup(name_sessions, &username);
+	if(session != NULL) {
+		/* A successful find automatically increases the reference counter:
+		 * it's up to the caller to decrease it again when done */
+		janus_refcount_increase(&session->ref);
+	}
+	janus_mutex_unlock(&sessions_mutex);
+	return session;
+}
+
 
 void janus_session_notify_event(janus_session *session, json_t *event) {
 	if(session != NULL && !g_atomic_int_get(&session->destroyed) && session->source != NULL && session->source->transport != NULL) {
@@ -779,24 +829,181 @@ static void janus_request_ice_handle_answer(janus_ice_handle *handle, int audio,
 	}
 }
 
-int janus_process_incoming_request_mytest(janus_request *request) {
+int janus_process_incoming_request(janus_request *request) {
 	int ret = -1;
+	if(request == NULL) {
+		JANUS_LOG(LOG_ERR, "Missing request or payload to process, giving up...\n");
+		return ret;
+	}
+	json_t *root = request->message;
+	if(json_object_get(root, "srtc")){
+		return janus_process_incoming_request_srtc(request);
+	}else{
+		return janus_process_incoming_request_janus(request);
+	}
+}
+int janus_process_incoming_request_srtc(janus_request *request) {
+	int ret = -1;
+	if(request == NULL) {
+		JANUS_LOG(LOG_ERR, "Missing request or payload to process, giving up...\n");
+		return ret;
+	}
 	int error_code = 0;
 	char error_cause[100];
-
 	json_t *root = request->message;
-	/* Ok, let's start with the ids */
 	guint64 session_id = 0, handle_id = 0;
+	json_t *s = json_object_get(root, "session_id");
+	if(s && json_is_integer(s))
+		session_id = json_integer_value(s);
+	json_t *h = json_object_get(root, "handle_id");
+	if(h && json_is_integer(h))
+		handle_id = json_integer_value(h);
 
+	janus_session *session = NULL;
+	janus_ice_handle *handle = NULL;
+	/* Get transaction and message request */
+	JANUS_VALIDATE_JSON_OBJECT(root, incoming_request_srtc_parameters,
+		error_code, error_cause, FALSE,
+		JANUS_ERROR_MISSING_MANDATORY_ELEMENT, JANUS_ERROR_INVALID_ELEMENT_TYPE);
+	if(error_code != 0) {
+		ret = janus_process_srtc_error_string(request, session_id, NULL, error_code, error_cause);
+		goto srtcdone;
+	}
 	json_t *transaction = json_object_get(root, "transaction");
 	const gchar *transaction_text = json_string_value(transaction);
-	json_t *message = json_object_get(root, "janus");
+	json_t *message = json_object_get(root, "srtc");
 	const gchar *message_text = json_string_value(message);
+	
+	json_t *username = json_object_get(root, "username");
+	const gchar *username_text = json_string_value(username);	
+
+	session = janus_session_find_by_username(username_text);
+
+	if(session == NULL && !strcasecmp(message_text, "register")){		
+		session = janus_session_create_srtc(session_id, username_text);
+		if(session == NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			goto srtcdone;
+		}
+		session_id = session->session_id;
+		/* We increase the counter as this request is using the session */
+		janus_refcount_increase(&session->ref);
+		/* Take note of the request source that originated this session (HTTP, WebSockets, RabbitMQ?) */
+		session->source = janus_request_new(request->transport, request->instance, NULL, FALSE, NULL);
+		/* Notify the source that a new session has been created */
+		request->transport->session_created(request->instance, session->session_id);
+		/* Notify event handlers */
+		if(janus_events_is_enabled()) {
+			/* Session created, add info on the transport that originated it */
+			json_t *transport = json_object();
+			json_object_set_new(transport, "transport", json_string(session->source->transport->get_package()));
+			char id[32];
+			memset(id, 0, sizeof(id));
+			g_snprintf(id, sizeof(id), "%p", session->source->instance);
+			json_object_set_new(transport, "id", json_string(id));
+			janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "created", transport);
+		}
+
+		//create handle
+		const gchar *plugin_text = "video_call";
+		janus_plugin *plugin_t = janus_plugin_find(plugin_text);
+		if(plugin_t == NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_NOT_FOUND, "No such plugin '%s'", plugin_text);
+			goto srtcdone;
+		}	
+//		json_t *opaque = json_object_get(root, "opaque_id");
+//		const char *opaque_id = opaque ? json_string_value(opaque) : NULL;
+		/* Create handle */
+//		handle = janus_ice_handle_create(session, opaque_id);
+		handle = janus_ice_handle_create(session, NULL);
+		if(handle == NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			goto srtcdone;
+		}
+		handle_id = handle->handle_id;
+		session->ice_handle_id = handle->handle_id;
+		/* We increase the counter as this request is using the handle */
+		janus_refcount_increase(&handle->ref);
+		/* Attach to the plugin */
+		int error = 0;
+		if((error = janus_ice_handle_attach_plugin(session, handle, plugin_t)) != 0) {
+			/* TODO Make error struct to pass verbose information */
+			janus_session_handles_remove(session, handle);
+			JANUS_LOG(LOG_ERR, "Couldn't attach to plugin '%s', error '%d'\n", plugin_text, error);
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
+			goto srtcdone;
+		}
+		janus_plugin_result *result = plugin_t->handle_message(handle->app_handle,
+					g_strdup((char *)transaction_text), root, NULL);
+		if(result == NULL) {
+			/* Something went horribly wrong! */
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
+			goto srtcdone;
+		}
+		if(result->type == JANUS_PLUGIN_OK) {
+			/* Prepare JSON reply */
+			json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
+			/* Send the success reply */
+			ret = janus_process_success(request, reply);
+		}else if(result->type == JANUS_PLUGIN_OK_WAIT) {
+			/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
+			json_t *reply = janus_create_srtc_message("processing", session_id, transaction_text);
+			if(result->text)
+				json_object_set_new(reply, "hint", json_string(result->text));
+			/* Send the success reply */
+			ret = janus_process_success(request, reply);
+		} else {
+			/* Something went horribly wrong! */
+			ret = janus_process_srtc_error_string(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
+				(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
+			janus_plugin_result_destroy(result);			
+		}
+		goto srtcdone;
+	}
+	if(session == NULL){
+		ret = janus_process_srtc_error_string(request, session_id, NULL, SRTC_ERROR_MESSAGE_PARAM, "username not register and not a register message!");
+		goto srtcdone;
+	}
+	session_id = session->session_id;
+	/* Update the last activity timer */
+	session->last_activity = janus_get_monotonic_time();
+
+	handle = janus_session_handles_find(session, session->ice_handle_id);
+	if(!handle) {
+		JANUS_LOG(LOG_ERR, "Couldn't find any handle %"SCNu64" in session %"SCNu64"...\n", handle_id, session_id);
+		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
+		goto srtcdone;
+	}
+
+	//find session by user name
+	if(!strcasecmp(message_text, "keepalive")){
+		/* Just a keep-alive message, reply with an ack */
+		JANUS_LOG(LOG_VERB, "Got a keep-alive on session %"SCNu64"\n", session_id);
+		json_t *reply = janus_create_srtc_message("ack", session_id, transaction_text);
+		/* Send the success reply */
+		ret = janus_process_success(request, reply);
+	}else if(!strcasecmp(message_text, "call") ||!strcasecmp(message_text, "accept")){
+
+	}else if(!strcasecmp(message_text, "hangup")){
+
+	}else if(!strcasecmp(message_text, "avswitch")){
+
+	}else if(!strcasecmp(message_text, "enterroom")){//这里是另一个插件
+
+	}else if(!strcasecmp(message_text, "quitroom")){
+		
+	}
+
+srtcdone:
+	/* Done processing */
+	if(handle != NULL)
+		janus_refcount_decrease(&handle->ref);
+	if(session != NULL)
+		janus_refcount_decrease(&session->ref);
 	return ret;
 }
 
-
-int janus_process_incoming_request(janus_request *request) {
+int janus_process_incoming_request_janus(janus_request *request) {
 	int ret = -1;
 	if(request == NULL) {
 		JANUS_LOG(LOG_ERR, "Missing request or payload to process, giving up...\n");
@@ -813,11 +1020,6 @@ int janus_process_incoming_request(janus_request *request) {
 	json_t *h = json_object_get(root, "handle_id");
 	if(h && json_is_integer(h))
 		handle_id = json_integer_value(h);
-
-	json_t *p = json_object_get(root, "userdata");
-	if (p){
-		return janus_process_incoming_request_mytest(request);
-	}
 
 	janus_session *session = NULL;
 	janus_ice_handle *handle = NULL;
@@ -1146,7 +1348,7 @@ int janus_process_incoming_request(janus_request *request) {
 			/* Check the JSEP type */
 			janus_mutex_lock(&handle->mutex);
 			int offer = 0;
-			if(!strcasecmp(jsep_type, "offer"))  {
+			if(!strcasecmp(jsep_type, "offer")) {
 				offer = 1;
 				janus_flags_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
 				janus_flags_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_GOT_OFFER);
@@ -2284,6 +2486,42 @@ static int janus_process_error_string(janus_request *request, uint64_t session_i
 	/* Pass to the right transport plugin */
 	return request->transport->send_message(request->instance, request->request_id, request->admin, reply);
 }
+static int janus_process_srtc_error_string(janus_request *request, uint64_t session_id, const char *transaction, gint error, gchar *error_string)
+{
+	if(!request)
+		return -1;
+	/* Done preparing error */
+	JANUS_LOG(LOG_VERB, "[%s] Returning %s API error %d (%s)\n", transaction, request->admin ? "admin" : "Janus", error, error_string);
+	/* Prepare JSON error */
+	json_t *reply = janus_create_srtc_message("error", session_id, transaction);
+	json_t *error_data = json_object();
+	json_object_set_new(error_data, "errorno", json_integer(error));
+	json_object_set_new(error_data, "erromsg", json_string(error_string));
+	json_object_set_new(reply, "error", error_data);
+	/* Pass to the right transport plugin */
+	return request->transport->send_message(request->instance, request->request_id, request->admin, reply);
+}
+
+int janus_process_srtc_error(janus_request *request, uint64_t session_id, const char *transaction, gint error, const char *format, ...)
+{
+	if(!request)
+		return -1;
+	gchar *error_string = NULL;
+	gchar error_buf[512];
+	if(format == NULL) {
+		/* No error string provided, use the default one */
+		error_string = (gchar *)janus_get_api_error(error);
+	} else {
+		/* This callback has variable arguments (error string) */
+		va_list ap;
+		va_start(ap, format);
+		g_vsnprintf(error_buf, sizeof(error_buf), format, ap);
+		va_end(ap);
+		error_string = error_buf;
+	}
+	return janus_process_srtc_error_string(request, session_id, transaction, error, error_string);
+
+}
 
 int janus_process_error(janus_request *request, uint64_t session_id, const char *transaction, gint error, const char *format, ...)
 {
@@ -2651,9 +2889,10 @@ static void *janus_transport_requests(void *data) {
 		destroy = TRUE;
 		if(!request->admin) {
 			/* Process the request synchronously only it's not a message for a plugin */
-			json_t *message = json_object_get(request->message, "janus");
+			json_t *message = json_object_get(request->message, "janus");	
+			json_t *srtc = json_object_get(request->message, "srtc");
 			const gchar *message_text = json_string_value(message);
-			if(message_text && !strcasecmp(message_text, "message")) {
+			if((message_text && !strcasecmp(message_text, "message")) || (srtc)) {
 				/* Spawn a task thread */
 				GError *tperror = NULL;
 				g_thread_pool_push(tasks, request, &tperror);
@@ -3918,6 +4157,8 @@ gint main(int argc, char *argv[])
 
 	/* Sessions */
 	sessions = g_hash_table_new_full(g_int64_hash, g_int64_equal, (GDestroyNotify)g_free, NULL);
+	name_sessions = g_hash_table_new_full(g_str_hash, g_str_equal, (GDestroyNotify)g_free, NULL);
+
 	janus_mutex_init(&sessions_mutex);
 	/* Start the sessions timeout watchdog */
 	sessions_watchdog_context = g_main_context_new();

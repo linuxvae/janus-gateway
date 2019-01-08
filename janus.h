@@ -45,6 +45,12 @@ typedef struct janus_request janus_request;
 typedef struct janus_session {
 	/*! \brief Janus Core-Client session ID */
 	guint64 session_id;
+	/*! \brief Janus Core-Client username */
+	gchar 	*username;
+	
+	/*! \brief Janus Core-Client default hand id  use to srtc*/
+	guint64  ice_handle_id;
+	
 	/*! \brief Map of handles this session is managing */
 	GHashTable *ice_handles;
 	/*! \brief Time of the last activity on the session */

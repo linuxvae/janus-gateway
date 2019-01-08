@@ -1,4 +1,5 @@
 AC_INIT([Janus WebRTC Server],[0.6.0],[https://github.com/meetecho/janus-gateway],[janus-gateway],[https://janus.conf.meetecho.com])
+AC_LANG(C)
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -8,12 +9,65 @@ AC_ENABLE_STATIC(no)
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_SILENT_RULES([yes])
 
-AC_GNU_SOURCE
+#AC_GNU_SOURCE has been deprecated (https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Obsolete-Macros.html)
+AC_USE_SYSTEM_EXTENSIONS
 
 AC_PROG_CC
 
 LT_PREREQ([2.2])
 LT_INIT
+
+# Common CFLAGS
+CFLAGS="$CFLAGS \
+	-fPIC \
+	-fstack-protector-all \
+	-fstrict-aliasing \
+	-ggdb3 \
+	-pthread \
+	-Wall \
+	-Warray-bounds \
+	-Wextra \
+	-Wformat-nonliteral \
+	-Wformat-security \
+	-Wformat=2 \
+	-Winit-self \
+	-Winline \
+	-Wlarger-than=65537 \
+	-Wmissing-declarations \
+	-Wmissing-format-attribute \
+	-Wmissing-include-dirs \
+	-Wmissing-noreturn \
+	-Wmissing-prototypes \
+	-Wnested-externs \
+	-Wno-aggregate-return \
+	-Wno-missing-field-initializers \
+	-Wno-redundant-decls \
+	-Wno-undef \
+	-Wno-unused-parameter \
+	-Wold-style-definition \
+	-Wpacked \
+	-Wpointer-arith \
+	-Wsign-compare \
+	-Wstrict-prototypes \
+	-Wswitch-default \
+	-Wunused \
+	-Wwrite-strings"
+
+AM_CONDITIONAL([USE_CLANG], [test "x$CC" = "xclang"])
+AM_COND_IF([USE_CLANG],
+	# Specific clang flags
+	[CFLAGS="$CFLAGS \
+		-Wno-cast-align \
+		-Wno-initializer-overrides"
+	],
+	# Specific gcc flags
+	[CFLAGS="$CFLAGS \
+		-Wcast-align \
+		-Wno-override-init \
+		-Wunsafe-loop-optimizations \
+		-Wunused-but-set-variable"	
+	]
+)
 
 JANUS_VERSION=60
 AC_SUBST(JANUS_VERSION)
@@ -23,11 +77,14 @@ AC_SUBST(JANUS_VERSION_STRING)
 case "$host_os" in
 darwin*)
 	CFLAGS="$CFLAGS -I/usr/local/opt/openssl/include -I/usr/local/include"
+	# add rdynamic to LDFLAGS
+	LDFLAGS="$LDFLAGS -Wl,-export_dynamic"
 	LDFLAGS="$LDFLAGS -L/usr/local/lib -L/usr/local/opt/openssl/lib -L/opt/local/lib -L/usr/local/libsrtp/lib"
 	AM_CONDITIONAL([DARWIN_OS], true)
 	AM_CONDITIONAL([HAS_DTLS_WINDOW_SIZE], false)
 ;;
 *)
+	LDFLAGS="$LDFLAGS -Wl,--export-dynamic"
 	AM_CONDITIONAL([DARWIN_OS], false)
 	AM_CONDITIONAL([HAS_DTLS_WINDOW_SIZE], true)
 esac
@@ -865,7 +922,7 @@ AC_OUTPUT
 # Summary
 ##
 echo
-
+echo "Compiler:                  $CC"
 AM_COND_IF([ENABLE_LIBSRTP_2],
 	[echo "libsrtp version:           2.x"],
 	[echo "libsrtp version:           1.5.x"])

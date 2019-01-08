@@ -419,7 +419,7 @@ function Janus(gatewayCallbacks) {
 	}
 	var iceServers = gatewayCallbacks.iceServers;
 	if(iceServers === undefined || iceServers === null)
-		iceServers = [{urls: "stun:47.75.213.83:3478"}];
+		iceServers = [{urls: "stun:stun.l.google.com:19302"}];
 	var iceTransportPolicy = gatewayCallbacks.iceTransportPolicy;
 	var bundlePolicy = gatewayCallbacks.bundlePolicy;
 	// Whether IPv6 candidates should be gathered
@@ -1421,6 +1421,7 @@ function Janus(gatewayCallbacks) {
 			gap = 50;	// We choose 50ms as the default gap between tones
 		Janus.debug("Sending DTMF string " + tones + " (duration " + duration + "ms, gap " + gap + "ms)");
 		config.dtmfSender.insertDTMF(tones, duration, gap);
+		callbacks.success();
 	}
 
 	// Private method to destroy a plugin handle

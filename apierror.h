@@ -64,6 +64,8 @@
 #define JANUS_ERROR_TOKEN_NOT_FOUND				470
 /*! \brief The current request cannot be handled because of not compatible WebRTC state */
 #define JANUS_ERROR_WEBRTC_STATE				471
+/*! \brief 错误的message 参数	*/
+#define SRTC_ERROR_MESSAGE_PARAM				472
 
 
 /*! \brief Helper method to get a string representation of an API error code
