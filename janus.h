@@ -47,10 +47,10 @@ typedef struct janus_session {
 	guint64 session_id;
 	/*! \brief Janus Core-Client username */
 	gchar 	*username;
-	
+
 	/*! \brief Janus Core-Client default hand id  use to srtc*/
 	guint64  ice_handle_id;
-	
+
 	/*! \brief Map of handles this session is managing */
 	GHashTable *ice_handles;
 	/*! \brief Time of the last activity on the session */
@@ -174,6 +174,7 @@ int janus_process_success(janus_request *request, json_t *payload);
  * @returns 0 on success, a negative integer otherwise
  */
 int janus_process_error(janus_request *request, uint64_t session_id, const char *transaction, gint error, const char *format, ...) G_GNUC_PRINTF(5, 6);
+int janus_process_srtc_error(janus_request *request, uint64_t session_id, const char *transaction, gint error, const char *format, ...) G_GNUC_PRINTF(5, 6);
 ///@}
 
 
