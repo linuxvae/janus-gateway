@@ -14,7 +14,7 @@
 
 
 
-typedef int (*srtc_pre_create_plugin_pt)();
+typedef int (*srtc_pre_create_plugin_pt)(int module_index);
 
 typedef janus_plugin_result* (*srtc_handle_message_pt)(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
 typedef int (* srtc_create_session_pt)(janus_plugin_session *handle, int *error);

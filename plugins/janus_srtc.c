@@ -19,8 +19,10 @@ srtc_destroy_session_pt          srtc_destroy_session;
 srtc_init_pt							srtc_init;
 srtc_destroy_pt						srtc_destroy;
 
+static int srtc_module_index = -1;//可以作成一个结构体
 
-int janus_srtc_pre_create_plugin();
+
+int janus_srtc_pre_create_plugin(int module_index);
 /* Plugin methods */
 janus_plugin *create(void);
 int janus_srtc_init_init(janus_callbacks *callback, const char *config_path);
@@ -77,8 +79,8 @@ int janus_max_srtc_module = sizeof(g_mod_create_func)/sizeof(srtc_pre_create_plu
 janus_plugin *create(void){
 	JANUS_LOG(LOG_VERB, "%s created!\n", JANUS_SRTC_NAME);
 	int i=0;
-	for(;i<sizeof(g_mod_create_func)/sizeof(srtc_pre_create_plugin_pt);i++){
-		g_mod_create_func[i]();
+	for(;i<janus_max_srtc_module;i++){
+		g_mod_create_func[i](i);
 	}
 	return &janus_srtc_plugin;
 }
@@ -178,7 +180,7 @@ static int janus_srtc_hangup_media(janus_plugin_session *handle){
 	return srtc_hangup_media(handle);
 }
 
-int janus_srtc_pre_create_plugin(){
+int janus_srtc_pre_create_plugin(int module_index){
 	srtc_handle_message = janus_srtc_handle_message;
 	srtc_create_session = janus_srtc_create_session;
 	srtc_incoming_rtp = janus_srtc_incoming_rtp;
@@ -187,6 +189,7 @@ int janus_srtc_pre_create_plugin(){
 	srtc_destroy_session = janus_srtc_destroy_session;
 	srtc_init = NULL;
 	srtc_destroy = NULL;
+	srtc_module_index = module_index;
 	return 0;
 }
 
