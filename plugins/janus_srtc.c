@@ -72,6 +72,7 @@ static janus_plugin janus_srtc_plugin =
 
 
 srtc_pre_create_plugin_pt g_mod_create_func[]={janus_srtc_pre_create_plugin};//简单的方法加载各个模块
+int janus_max_srtc_module = sizeof(g_mod_create_func)/sizeof(srtc_pre_create_plugin_pt);
 
 janus_plugin *create(void){
 	JANUS_LOG(LOG_VERB, "%s created!\n", JANUS_SRTC_NAME);
@@ -144,8 +145,13 @@ json_t *janus_srtc_query_session_init(janus_plugin_session *handle){
 
 
 static int janus_srtc_create_session(janus_plugin_session *handle, int *error){
+	janus_srtc_session_t *session = g_malloc0(sizeof(janus_srtc_session_t));
+	session->handle = handle;
+	session->mod_srtc_ctx = g_malloc0(janus_max_srtc_module*sizeof(void*));
+	handle->plugin_handle = session;
+	
+	janus_refcount_init(&session->ref, janus_videocall_session_free);
 	return srtc_create_session(handle, error);
-
 }
 static int janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 	return srtc_destroy_session(handle, error);

@@ -25,6 +25,13 @@ typedef int (* srtc_destroy_session_pt)(janus_plugin_session *handle, int *error
 typedef int (* srtc_init_pt)(janus_callbacks *callback, const char *config_path);
 typedef	int (* srtc_destroy_pt)(void);
 
+
+typedef struct {
+	janus_plugin_session *handle;
+	void      **mod_srtc_ctx;		//管理各个模块
+	janus_refcount ref;
+}janus_srtc_session_t;
+
 extern srtc_handle_message_pt          srtc_handle_message;
 extern srtc_create_session_pt       srtc_create_session;
 extern srtc_incoming_rtp_pt    srtc_incoming_rtp;
