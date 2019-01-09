@@ -3897,14 +3897,14 @@ gint main(int argc, char *argv[])
 		if(item && item->value)
 			logfile = item->value;
 	}
-	
+
 
 	/* Check is signal server */
 	janus_config_item *item = janus_config_get(config, config_general, janus_config_type_item, "signal_server");
 	if(item && item->value && janus_is_true(item->value)){
-		signal_server = TRUE; 
+		signal_server = TRUE;
 	}
-	
+
 	/* Check if we're going to daemonize Janus */
 	if(args_info.daemon_given) {
 		daemonize = TRUE;
@@ -4088,7 +4088,7 @@ gint main(int argc, char *argv[])
 		janus_config_add(config, config_general, janus_config_item_create("plugins_folder", args_info.plugins_folder_arg));
 	}
 	if(args_info.signal_server_given) {
-		janus_config_add(config, config_general, janus_config_item_create("signal_server", args_info.signal_server_arg));
+		janus_config_add(config, config_general, janus_config_item_create("signal_server", "yes"));
 	}
 	if(args_info.apisecret_given) {
 		janus_config_add(config, config_general, janus_config_item_create("api_secret", args_info.apisecret_arg));
@@ -4168,7 +4168,7 @@ gint main(int argc, char *argv[])
 
 	/* Logging/debugging */
 	JANUS_PRINT("Debug/log level is %d\n", janus_log_level);
-	janus_config_item *item = janus_config_get(config, config_general, janus_config_type_item, "debug_timestamps");
+	item = janus_config_get(config, config_general, janus_config_type_item, "debug_timestamps");
 	if(item && item->value)
 		janus_log_timestamps = janus_is_true(item->value);
 	JANUS_PRINT("Debug/log timestamps are %s\n", janus_log_timestamps ? "enabled" : "disabled");

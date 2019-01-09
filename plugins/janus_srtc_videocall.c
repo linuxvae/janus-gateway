@@ -14,20 +14,20 @@ static srtc_init_pt 		srtc_init_next;
 static srtc_destroy_pt 		srtc_destroy_next;
 
 int janus_srtc_videocall_create_session(janus_plugin_session *handle, int *error){
-	return srtc_create_session();
+	return srtc_create_session(handle, error);
 
 }
 int janus_srtc_videocall_destroy_session(janus_plugin_session *handle, int *error){
-	return srtc_destroy_session();
+	return srtc_destroy_session(handle, error);
 }
 struct janus_plugin_result *
 	janus_srtc_videocall_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
 	return srtc_handle_message_next(handle, transaction, message, jsep);
 }
-int janus_srtc_pre_create_plugin(){
+int janus_srtc__videocall_pre_create_plugin(){
 	srtc_handle_message_next = srtc_handle_message;
-    srtc_handle_message = srtc_handle_message_next;	
+    srtc_handle_message = srtc_handle_message_next;
 	srtc_create_session_next = srtc_create_session;
 	srtc_create_session = srtc_create_session_next;
 	srtc_destroy_session_next = srtc_destroy_session;

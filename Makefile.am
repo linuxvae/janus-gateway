@@ -440,7 +440,7 @@ endif
 
 if ENABLE_PLUGIN_SRTC
 plugin_LTLIBRARIES += plugins/libjanus_srtc.la
-plugins_libjanus_srtc_la_SOURCES = plugins/janus_srtc.c plugins/janus_srtc_videocall.c
+plugins_libjanus_srtc_la_SOURCES = plugins/janus_srtc.c plugins/janus_srtc_videocall.c plugins/janus_srtc.h
 plugins_libjanus_srtc_la_CFLAGS = $(plugins_cflags)
 plugins_libjanus_srtc_la_LDFLAGS = $(plugins_ldflags)
 plugins_libjanus_srtc_la_LIBADD = $(plugins_libadd)

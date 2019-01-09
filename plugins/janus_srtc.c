@@ -10,29 +10,38 @@
 
 
 
+srtc_handle_message_pt          srtc_handle_message;
+srtc_create_session_pt       srtc_create_session;
+srtc_incoming_rtp_pt    srtc_incoming_rtp;
+srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
+srtc_hangup_media_pt    srtc_hangup_media;
+srtc_destroy_session_pt          srtc_destroy_session;
+srtc_init_pt							srtc_init;
+srtc_destroy_pt						srtc_destroy;
+
 
 int janus_srtc_pre_create_plugin();
 /* Plugin methods */
 janus_plugin *create(void);
-int janus_srtc_init(janus_callbacks *callback, const char *config_path);
-void janus_srtc_destroy(void);
-int janus_srtc_get_api_compatibility(void);
-int janus_srtc_get_version(void);
-const char *janus_srtc_get_version_string(void);
-const char *janus_srtc_get_description(void);
-const char *janus_srtc_get_name(void);
-const char *janus_srtc_get_author(void);
-const char *janus_srtc_get_package(void);
-void janus_srtc_create_session(janus_plugin_session *handle, int *error);
-struct janus_plugin_result *janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
-void janus_srtc_setup_media(janus_plugin_session *handle);
-void janus_srtc_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len);
-void janus_srtc_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len);
-void janus_srtc_incoming_data(janus_plugin_session *handle, char *buf, int len);
-void janus_srtc_slow_link(janus_plugin_session *handle, int uplink, int video);
-void janus_srtc_hangup_media(janus_plugin_session *handle);
-void janus_srtc_destroy_session(janus_plugin_session *handle, int *error);
-json_t *janus_srtc_query_session(janus_plugin_session *handle);
+int janus_srtc_init_init(janus_callbacks *callback, const char *config_path);
+void janus_srtc_destroy_init(void);
+int janus_srtc_get_api_compatibility_init(void);
+int janus_srtc_get_version_init();
+const char *janus_srtc_get_version_string_init(void);
+const char *janus_srtc_get_description_init(void);
+const char *janus_srtc_get_name_init(void);
+const char *janus_srtc_get_author_init(void);
+const char *janus_srtc_get_package_init(void);
+void janus_srtc_create_session_init(janus_plugin_session *handle, int *error);
+struct janus_plugin_result *janus_srtc_handle_message_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
+void janus_srtc_setup_media_init(janus_plugin_session *handle);
+void janus_srtc_incoming_rtp_init(janus_plugin_session *handle, int video, char *buf, int len);
+void janus_srtc_incoming_rtcp_init(janus_plugin_session *handle, int video, char *buf, int len);
+void janus_srtc_incoming_data_init(janus_plugin_session *handle, char *buf, int len);
+void janus_srtc_slow_link_init(janus_plugin_session *handle, int uplink, int video);
+void janus_srtc_hangup_media_init(janus_plugin_session *handle);
+void janus_srtc_destroy_session_init(janus_plugin_session *handle, int *error);
+json_t *janus_srtc_query_session_init(janus_plugin_session *handle);
 
 /* Plugin setup */
 static janus_plugin janus_srtc_plugin =
@@ -61,15 +70,6 @@ static janus_plugin janus_srtc_plugin =
 	);
 
 
-srtc_handle_message_pt          srtc_handle_message;
-srtc_create_session_pt       srtc_create_session;
-srtc_incoming_rtp_pt    srtc_incoming_rtp;
-srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
-srtc_hangup_media_pt    srtc_hangup_media;
-srtc_destroy_session_pt          srtc_destroy_session;
-srtc_init_pt srtc_init;
-srtc_destroy_pt srtc_destroy;
-
 
 srtc_pre_create_plugin_pt g_mod_create_func[]={janus_srtc_pre_create_plugin};//简单的方法加载各个模块
 
@@ -82,7 +82,7 @@ janus_plugin *create(void){
 	return &janus_srtc_plugin;
 }
 int janus_srtc_init_init(janus_callbacks *callback, const char *config_path){
-	
+
 	return 0;
 }
 void janus_srtc_destroy_init(void);
@@ -143,36 +143,34 @@ json_t *janus_srtc_query_session_init(janus_plugin_session *handle){
 //***************
 
 
-int janus_srtc_create_session(janus_plugin_session *handle, int *error){
-	return srtc_create_session();
+static int janus_srtc_create_session(janus_plugin_session *handle, int *error){
+	return srtc_create_session(handle, error);
 
 }
-int janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
-	return srtc_destroy_session();
+static int janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
+	return srtc_destroy_session(handle, error);
 }
-struct janus_plugin_result *
+static struct janus_plugin_result *
 	janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
-	return srtc_handle_message();
+	return srtc_handle_message(handle, transaction, message, jsep);
 }
-int janus_srtc_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
-		return srtc_incoming_rtp();
+static int janus_srtc_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
+		return srtc_incoming_rtp(handle, video, buf,len);
 
 }
-int janus_srtc_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len){
-	return srtc_incoming_rtcp();
+static int janus_srtc_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len){
+	return srtc_incoming_rtcp(handle, video, buf,len);
 
 }
-int janus_srtc_incoming_data(janus_plugin_session *handle, char *buf, int len){
-	return srtc_handle_message();
-
+static int janus_srtc_incoming_data(janus_plugin_session *handle, char *buf, int len){
+	return 0;
 }
-int janus_srtc_hangup_media(janus_plugin_session *handle){
-	return srtc_handle_message();
+static int janus_srtc_hangup_media(janus_plugin_session *handle){
+	return srtc_hangup_media(handle);
 }
 
 int janus_srtc_pre_create_plugin(){
-
 	srtc_handle_message = janus_srtc_handle_message;
 	srtc_create_session = janus_srtc_create_session;
 	srtc_incoming_rtp = janus_srtc_incoming_rtp;
