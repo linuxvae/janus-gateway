@@ -143,14 +143,16 @@ json_t *janus_srtc_query_session_init(janus_plugin_session *handle){
 
 //***************
 
+static void janus_srtc_session_free(const janus_refcount *session_ref){
 
+}
 static int janus_srtc_create_session(janus_plugin_session *handle, int *error){
 	janus_srtc_session_t *session = g_malloc0(sizeof(janus_srtc_session_t));
 	session->handle = handle;
 	session->mod_srtc_ctx = g_malloc0(janus_max_srtc_module*sizeof(void*));
 	handle->plugin_handle = session;
-	
-	janus_refcount_init(&session->ref, janus_videocall_session_free);
+
+	janus_refcount_init(&session->ref, janus_srtc_session_free);
 	return srtc_create_session(handle, error);
 }
 static int janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
