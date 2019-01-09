@@ -68,6 +68,8 @@ static GHashTable *plugins_so = NULL;
 static gboolean daemonize = FALSE;
 static int pipefd[2];
 
+gboolean signal_server = FALSE;
+
 
 #ifdef REFCOUNT_DEBUG
 /* Reference counters debugging */
@@ -1287,6 +1289,9 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			janus_plugin_result_destroy(result);
 		}
 		goto srtcdone;
+	}
+	if(signal_server == FALSE && !strcasecmp(message_text, "accept")){
+		//创建session和handler
 	}
 	if(session == NULL){
 		ret = janus_process_srtc_error_string(request, session_id, NULL, SRTC_ERROR_MESSAGE_PARAM, "username not register and not a register message!");
@@ -3892,7 +3897,14 @@ gint main(int argc, char *argv[])
 		if(item && item->value)
 			logfile = item->value;
 	}
+	
 
+	/* Check is signal server */
+	janus_config_item *item = janus_config_get(config, config_general, janus_config_type_item, "signal_server");
+	if(item && item->value && janus_is_true(item->value)){
+		signal_server = TRUE; 
+	}
+	
 	/* Check if we're going to daemonize Janus */
 	if(args_info.daemon_given) {
 		daemonize = TRUE;
@@ -4074,6 +4086,9 @@ gint main(int argc, char *argv[])
 	}
 	if(args_info.plugins_folder_given) {
 		janus_config_add(config, config_general, janus_config_item_create("plugins_folder", args_info.plugins_folder_arg));
+	}
+	if(args_info.signal_server_given) {
+		janus_config_add(config, config_general, janus_config_item_create("signal_server", args_info.signal_server_arg));
 	}
 	if(args_info.apisecret_given) {
 		janus_config_add(config, config_general, janus_config_item_create("api_secret", args_info.apisecret_arg));

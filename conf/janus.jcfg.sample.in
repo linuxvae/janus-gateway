@@ -4,6 +4,7 @@
 # and, if needed, shared apisecret and/or token authentication mechanism
 # between application(s) and Janus.
 general: {
+	is_media_server = true			# false 作为signal server 还是meidaserver
 	configs_folder = "@confdir@"			# Configuration files folder
 	plugins_folder = "@plugindir@"			# Plugins folder
 	transports_folder = "@transportdir@"	# Transports folder
