@@ -9,6 +9,7 @@
 #define JANUS_SRTC_PACKAGE			"janus.plugin.videocall"
 
 
+srtc_handle_call_pt          srtc_handle_call;
 
 srtc_handle_message_pt          srtc_handle_message;
 srtc_create_session_pt       srtc_create_session;
@@ -71,16 +72,17 @@ static janus_plugin janus_srtc_plugin =
 		.query_session = janus_srtc_query_session_init,
 	);
 
-
-
-srtc_pre_create_plugin_pt g_mod_create_func[]={janus_srtc_pre_create_plugin};//简单的方法加载各个模块
-int janus_max_srtc_module = sizeof(g_mod_create_func)/sizeof(srtc_pre_create_plugin_pt);
+	
+extern  srtc_module_t srtc_rlay_msg_module;
+srtc_module_t srtc_modules[]={srtc_rlay_msg_module};//简单的方法加载各个模块
+int janus_max_srtc_module = sizeof(srtc_modules)/sizeof(srtc_module_t);
 
 janus_plugin *create(void){
 	JANUS_LOG(LOG_VERB, "%s created!\n", JANUS_SRTC_NAME);
 	int i=0;
 	for(;i<janus_max_srtc_module;i++){
-		g_mod_create_func[i](i);
+		srtc_modules[i]->mod_ctx = srtc_modules[i]->srtc_pre_create_plugin_pt();
+		srtc_modules[i]->srtc_module_index = i;
 	}
 	return &janus_srtc_plugin;
 }
@@ -113,9 +115,23 @@ const char *janus_srtc_get_package_init(void){
 void janus_srtc_create_session_init(janus_plugin_session *handle, int *error){
 
 }
+struct int
+	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
+{	
+	static janus_message_call_t  v;
+	//解析message 后生成V todo
+	
+	return srtc_handle_call(handle, &v);
+}
+
 struct janus_plugin_result *
 	janus_srtc_handle_message_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
+	json_t *message = json_object_get(root, "srtc");
+	const gchar *message_text = json_string_value(message);
+	if(!strcasecmp(message_text, "call")){
+		janus_srtc_handle_call_init(handle, transaction, message, jsep);
+	}//有待继续添加其他
 	return NULL;
 }
 void janus_srtc_setup_media_init(janus_plugin_session *handle){
@@ -160,6 +176,13 @@ static int janus_srtc_create_session(janus_plugin_session *handle, int *error){
 static int janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 	return srtc_destroy_session(handle, error);
 }
+
+static struct int
+	janus_srtc_handle_call(janus_plugin_session *handle, janus_message_call_t *v)
+{
+	return 0;
+}
+
 static struct janus_plugin_result *
 	janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
@@ -181,6 +204,7 @@ static int janus_srtc_hangup_media(janus_plugin_session *handle){
 }
 
 int janus_srtc_pre_create_plugin(int module_index){
+	srtc_handle_call = janus_srtc_handle_call;
 	srtc_handle_message = janus_srtc_handle_message;
 	srtc_create_session = janus_srtc_create_session;
 	srtc_incoming_rtp = janus_srtc_incoming_rtp;
@@ -189,7 +213,6 @@ int janus_srtc_pre_create_plugin(int module_index){
 	srtc_destroy_session = janus_srtc_destroy_session;
 	srtc_init = NULL;
 	srtc_destroy = NULL;
-	srtc_module_index = module_index;
 	return 0;
 }
 

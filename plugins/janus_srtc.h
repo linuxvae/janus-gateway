@@ -14,7 +14,17 @@
 
 
 
-typedef int (*srtc_pre_create_plugin_pt)(int module_index);
+typedef struct {
+	int srtc_module_index;
+	void	*(*srtc_pre_create_plugin_pt) ();
+	int (*srtc_pre_destroy_plugin_pt) ();
+	void* mod_ctx;
+}srtc_module_t;
+
+extern srtc_module_t srtc_modules[];
+
+#define srtc_get_module_ctx(module)  srtc_modules[module.srtc_module_index]
+
 
 typedef janus_plugin_result* (*srtc_handle_message_pt)(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
 typedef int (* srtc_create_session_pt)(janus_plugin_session *handle, int *error);
@@ -24,6 +34,19 @@ typedef int (* srtc_hangup_media_pt)(janus_plugin_session *handle);
 typedef int (* srtc_destroy_session_pt)(janus_plugin_session *handle, int *error);
 typedef int (* srtc_init_pt)(janus_callbacks *callback, const char *config_path);
 typedef	int (* srtc_destroy_pt)(void);
+
+
+typedef struct {
+	char* caller_name;
+	char* callee_name;
+	char* app_key;
+	//有待完善
+	
+} janus_message_call_t;
+
+typedef	int (* srtc_handle_call_pt)( janus_plugin_session *handle, janus_message_call_t*v);
+
+
 
 
 typedef struct {
