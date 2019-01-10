@@ -21,7 +21,7 @@ typedef struct {
 	void* mod_ctx;
 }srtc_module_t;
 
-extern srtc_module_t srtc_modules[];
+extern srtc_module_t* srtc_modules[];
 
 #define srtc_get_module_ctx(module)  srtc_modules[module.srtc_module_index]
 
@@ -41,7 +41,7 @@ typedef struct {
 	char* callee_name;
 	char* app_key;
 	//有待完善
-	
+
 } janus_message_call_t;
 
 typedef	int (* srtc_handle_call_pt)( janus_plugin_session *handle, janus_message_call_t*v);

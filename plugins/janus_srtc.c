@@ -72,10 +72,10 @@ static janus_plugin janus_srtc_plugin =
 		.query_session = janus_srtc_query_session_init,
 	);
 
-	
+
 extern  srtc_module_t srtc_rlay_msg_module;
-srtc_module_t srtc_modules[]={srtc_rlay_msg_module};//简单的方法加载各个模块
-int janus_max_srtc_module = sizeof(srtc_modules)/sizeof(srtc_module_t);
+srtc_module_t* srtc_modules[]={&srtc_rlay_msg_module};//简单的方法加载各个模块
+int janus_max_srtc_module = sizeof(srtc_modules)/sizeof(srtc_module_t*);
 
 janus_plugin *create(void){
 	JANUS_LOG(LOG_VERB, "%s created!\n", JANUS_SRTC_NAME);
@@ -115,20 +115,20 @@ const char *janus_srtc_get_package_init(void){
 void janus_srtc_create_session_init(janus_plugin_session *handle, int *error){
 
 }
-struct int
+int
 	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
-{	
+{
 	static janus_message_call_t  v;
 	//解析message 后生成V todo
-	
+
 	return srtc_handle_call(handle, &v);
 }
 
 struct janus_plugin_result *
 	janus_srtc_handle_message_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
-	json_t *message = json_object_get(root, "srtc");
-	const gchar *message_text = json_string_value(message);
+	json_t *srtc = json_object_get(message, "srtc");
+	const gchar *message_text = json_string_value(srtc);
 	if(!strcasecmp(message_text, "call")){
 		janus_srtc_handle_call_init(handle, transaction, message, jsep);
 	}//有待继续添加其他
@@ -177,7 +177,7 @@ static int janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 	return srtc_destroy_session(handle, error);
 }
 
-static struct int
+static int
 	janus_srtc_handle_call(janus_plugin_session *handle, janus_message_call_t *v)
 {
 	return 0;

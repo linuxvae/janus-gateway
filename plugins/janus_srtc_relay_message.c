@@ -22,7 +22,7 @@ static srtc_destroy_pt 		srtc_destroy_next;
 static int srtc_module_index = -1;
 extern gboolean signal_server;
 
-int janus_srtc__relay_pre_create_plugin();
+void* janus_srtc__relay_pre_create_plugin();
 
 srtc_module_t srtc_rlay_msg_module = {
 	0,
@@ -44,7 +44,7 @@ typedef struct {
 	void 	*callee_info;
 	void 	*caller_info;
 	janus_refcount ref;
-	
+
 }srtc_relay_message_session_t;
 
 
@@ -64,7 +64,7 @@ struct janus_plugin_result *
 	const gchar *message_text = json_string_value(message);
 
 	json_t *relay = json_object_get(root, "relay");
-	
+
 	if(!strcasecmp(message_text, "call")){
 		if(relay){
 			if(signal_server){//信令服务器处理relay的call 直接通过handle中的session sendmessage 发给B
@@ -74,9 +74,9 @@ struct janus_plugin_result *
 			}
 
 		}else if(signal_server){//创建session and创建websocket  ，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
-			json_t *media_server = json_object_get(root, "media_server");			
+			json_t *media_server = json_object_get(root, "media_server");
 			json_t *media_server_ip = json_object_get(media_server, "dst_ip");
-			const gchar *media_server_ip_text = json_string_value(ip);			
+			const gchar *media_server_ip_text = json_string_value(media_server_ip);
 		}
 
 
@@ -108,8 +108,8 @@ struct janus_plugin_result *
 }
 void* janus_srtc__relay_pre_create_plugin(){
 	srtc_handle_message_next = srtc_handle_message;
-    srtc_handle_message = srtc_handle_message_next;
-	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(srtc_relay_message_ctx_t);
+	srtc_handle_message = srtc_handle_message_next;
+	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));
 	//解析配置文件进行赋值
 	return relay_ctx;
 }
