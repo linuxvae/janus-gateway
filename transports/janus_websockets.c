@@ -1006,7 +1006,7 @@ static int janus_websockets_common_callback(
 				lws_callback_on_writable(wsi);
 				return -1;
 			}
-			JANUS_LOG(LOG_VERB, "[%s-%p] WebSocket connection accepted\n", log_prefix, wsi);
+			JANUS_LOG(LOG_VERB, "[%p] WebSocket connection accepted\n", wsi);
 			if(ws_client == NULL) {
 				JANUS_LOG(LOG_ERR, "[%s-%p] Invalid WebSocket client instance...\n", log_prefix, wsi);
 				return -1;

@@ -22,12 +22,13 @@ int janus_srtc_videocall_destroy_session(janus_plugin_session *handle, int *erro
 }
 struct janus_plugin_result *
 	janus_srtc_videocall_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
-{
+{	
+	
 	return srtc_handle_message_next(handle, transaction, message, jsep);
 }
 int janus_srtc__videocall_pre_create_plugin(){
-	srtc_handle_message_next = srtc_handle_message;
-    srtc_handle_message = srtc_handle_message_next;
+
+	
 	srtc_create_session_next = srtc_create_session;
 	srtc_create_session = srtc_create_session_next;
 	srtc_destroy_session_next = srtc_destroy_session;
