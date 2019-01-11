@@ -30,25 +30,25 @@ static int srtc_module_index = -1;//可以作成一个结构体
 
 /* Plugin methods */
 janus_plugin *create(void);
-int janus_srtc_init_init(janus_callbacks *callback, const char *config_path);
-void janus_srtc_destroy_init(void);
-int janus_srtc_get_api_compatibility_init(void);
-int janus_srtc_get_version_init();
-const char *janus_srtc_get_version_string_init(void);
-const char *janus_srtc_get_description_init(void);
-const char *janus_srtc_get_name_init(void);
-const char *janus_srtc_get_author_init(void);
-const char *janus_srtc_get_package_init(void);
-void janus_srtc_create_session_init(janus_plugin_session *handle, int *error);
-struct janus_plugin_result *janus_srtc_handle_message_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
-void janus_srtc_setup_media_init(janus_plugin_session *handle);
-void janus_srtc_incoming_rtp_init(janus_plugin_session *handle, int video, char *buf, int len);
-void janus_srtc_incoming_rtcp_init(janus_plugin_session *handle, int video, char *buf, int len);
-void janus_srtc_incoming_data_init(janus_plugin_session *handle, char *buf, int len);
-void janus_srtc_slow_link_init(janus_plugin_session *handle, int uplink, int video);
-void janus_srtc_hangup_media_init(janus_plugin_session *handle);
-void janus_srtc_destroy_session_init(janus_plugin_session *handle, int *error);
-json_t *janus_srtc_query_session_init(janus_plugin_session *handle);
+int janus_srtc_init(janus_callbacks *callback, const char *config_path);
+void janus_srtc_destroy(void);
+int janus_srtc_get_api_compatibility(void);
+int janus_srtc_get_version();
+const char *janus_srtc_get_version_string(void);
+const char *janus_srtc_get_description(void);
+const char *janus_srtc_get_name(void);
+const char *janus_srtc_get_author(void);
+const char *janus_srtc_get_package(void);
+void janus_srtc_create_session(janus_plugin_session *handle, int *error);
+struct janus_plugin_result *janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
+void janus_srtc_setup_media(janus_plugin_session *handle);
+void janus_srtc_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len);
+void janus_srtc_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len);
+void janus_srtc_incoming_data(janus_plugin_session *handle, char *buf, int len);
+void janus_srtc_slow_link(janus_plugin_session *handle, int uplink, int video);
+void janus_srtc_hangup_media(janus_plugin_session *handle);
+void janus_srtc_destroy_session(janus_plugin_session *handle, int *error);
+json_t *janus_srtc_query_session(janus_plugin_session *handle);
 
 /* Plugin setup */
 static janus_plugin janus_srtc_plugin =
@@ -174,7 +174,7 @@ srtc_module_t srtc_core_module = {
 	NULL,
 	NULL
 };
-typedef struct {	
+typedef struct {
 	//存储相关模块的配置信息
 }srtc_core_ctx_t;
 

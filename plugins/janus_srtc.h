@@ -69,7 +69,7 @@ typedef struct {
 
 extern srtc_handle_call_pt		   srtc_handle_call;
 extern srtc_handle_accept_pt		   srtc_handle_accept;
-extern srtc_handle_hangup_pt		   srtc_handle_accept;
+extern srtc_handle_hangup_pt		   srtc_handle_hangup;
 
 //以下函数 自己需要用到就自己定义
 extern srtc_handle_message_pt          srtc_handle_message;

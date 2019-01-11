@@ -15,8 +15,9 @@ static srtc_handle_call_pt          srtc_handle_call_next;
 static srtc_handle_accept_pt          srtc_handle_accept_next;
 static srtc_handle_hangup_pt          srtc_handle_hangup_next;
 
-static int srtc_module_index = -1;
 extern gboolean signal_server;
+/* JSON serialization options */
+static size_t json_format = JSON_INDENT(3) | JSON_PRESERVE_ORDER;
 
 /* WebSockets service thread */
 static GThread *ws_relay_thread = NULL;
@@ -33,14 +34,14 @@ srtc_module_t srtc_rlay_msg_module = {
 
 
 typedef struct {
-	
+
 	unsigned short ws_ping_pong_interval;
 	unsigned int timeout_secs;
 	const char *iface;
 	int 	wsport ;
 	const char *wss_iface;
 	int 	wss_port ;
-	const char *ssl_private_key_password;	
+	const char *ssl_private_key_password;
 	char *cert_pem_path;
 	char *cert_key_path;
 	gint destory_flag;
@@ -48,7 +49,7 @@ typedef struct {
 }srtc_relay_message_ctx_t;
 
 typedef struct {
-	janus_plugin_session *handle;	
+	janus_plugin_session *handle;
 	struct lws_client_connect_info i;
 	struct lws *wsi;
 	void 	*callee_info;
@@ -58,7 +59,8 @@ typedef struct {
 	int buflen;								/* Length of the buffer (may be resized after re-allocations) */
 	int bufpending;							/* Data an interrupted previous write couldn't send */
 	int bufoffset;							/* Offset from where the interrupted previous write should resume */
-	gint initialized = 0, stopping = 0;
+	gint initialized;
+	gint stopping;
 	janus_refcount ref; //后续来管理ref
 
 }srtc_relay_message_session_t;
@@ -67,8 +69,8 @@ static int janus_client_websockets_callback(
 		struct lws *wsi,
 		enum lws_callback_reasons reason,
 		void *user, void *in, size_t len){
-		
-		srtc_relay_message_session_t *relay_session = wsi->user_space;
+
+		srtc_relay_message_session_t *relay_session = (srtc_relay_message_session_t*)lws_wsi_user(wsi);
 		switch(reason) {
 
 			case LWS_CALLBACK_ESTABLISHED: {
@@ -81,7 +83,7 @@ static int janus_client_websockets_callback(
 					return -1;
 				}
 				if(relay_session->buffer && relay_session->bufpending > 0 && relay_session->bufoffset > 0
-						&& !g_atomic_int_get(&stopping)) {
+						&& !g_atomic_int_get(&relay_session->stopping)) {
 					JANUS_LOG(LOG_HUGE, "[%p] Completing pending WebSocket write (still need to write last %d bytes)...\n",
 						 wsi, relay_session->bufpending);
 					int sent = lws_write(wsi, relay_session->buffer + relay_session->bufoffset, relay_session->bufpending, LWS_WRITE_TEXT);
@@ -125,7 +127,7 @@ static int janus_client_websockets_callback(
 					/* Done for this round, check the next response/notification later */
 					lws_callback_on_writable(wsi);
 					return 0;
-					
+
 				}
 			}
 			case LWS_CALLBACK_RECEIVE: {
@@ -137,11 +139,11 @@ static int janus_client_websockets_callback(
 
 				return 0;
 			}
-			
+
 		}
 
 		return 0;
-}		
+}
 
 /* Protocol mappings */
 static struct lws_protocols ws_protocols[] = {
@@ -162,7 +164,7 @@ static srtc_relay_message_session_t* janus_srtc_relay_create_session(char *ipadd
 		JANUS_LOG(LOG_ERR, "ctx malloc failed!\n");
 		return ret;
 	}
-	//create libsocket 	
+	//create libsocket
 	memset(&session->i, 0, sizeof(session->i));
 	session->i.port = port;
 	session->i.path = "/";
@@ -173,15 +175,15 @@ static srtc_relay_message_session_t* janus_srtc_relay_create_session(char *ipadd
 	session->i.protocol = ws_protocols[0].name;
 	session->i.pwsi = &session->wsi;
 	session->i.userdata = session;
-	
+
 	session->buffer = NULL;
 	session->buflen = 0;
 	session->bufpending = 0;
-	session->bufoffset = 0;		
+	session->bufoffset = 0;
 
 	session->messages = g_async_queue_new();
 	session->wsi = lws_client_connect_via_info(&session->i);
-	
+
 	if(session->wsi == NULL){
 		JANUS_LOG(LOG_ERR, "ctx lws_client_connect_via_info failed!\n");
 		goto ERROR;
@@ -198,7 +200,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	srtc_relay_message_session_t* session;
 	json_t *message = json_object_get(root, "srtc");
 	const gchar *message_text = json_string_value(message);
-	
+
 	janus_srtc_session_t* srtc_session = (janus_srtc_session_t*)handle->plugin_handle;
 	json_t *relay_server_ip = json_object_get(relay_server, "dst_ip");
 	const gchar *relay_server_ip_text = json_string_value(relay_server_ip);
@@ -236,7 +238,7 @@ static int
 		json_t *media_server = json_object_get(root, "media_server");
 		if(media_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
-		}		
+		}
 	}
 	return srtc_handle_accept_next(handle, root, v);
 }
@@ -244,8 +246,8 @@ static int
 	janus_srtc_core_handle_accept(janus_plugin_session *handle, json_t *root, janus_message_accept_t *v)
 {
 	if(v->relay){
-		if(signal_server){//找到callee 发送,由其				
-			
+		if(signal_server){//找到callee 发送,由其
+
 		}else{//不做什么，由videocall模块去处理accept，他会把acctpt发送给session caller
 
 		}
@@ -264,9 +266,9 @@ static int
 {
 	if(v->relay){
 		if(signal_server){//找到callee 发送
-			
+
 		}else{//不做什么，由videocall模块去处理accept，他会把acctpt发送给session caller
-			
+
 		}
 
 	}else{//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
@@ -274,7 +276,7 @@ static int
 	}
 	return srtc_handle_accept_next(handle, root, v);
 }
-	
+
 static int janus_srtc_relay_message_parse_config_file(srtc_relay_message_ctx_t *relay_ctx, const char *config_path){
 	//解析配置文件进行赋值
 	/* Read configuration */
@@ -371,7 +373,7 @@ static int janus_srtc_relay_message_parse_config_file(srtc_relay_message_ctx_t *
 			}
 
 			relay_ctx->wsport = wsport;
-			relay_ctx->iface = g_strdup(ip ? ip : interface);				
+			relay_ctx->iface = g_strdup(ip ? ip : interface);
 			g_free(ip);
 		}
 
@@ -412,16 +414,16 @@ static int janus_srtc_relay_message_parse_config_file(srtc_relay_message_ctx_t *
 				if(item && item->value)
 					password = (char *)item->value;
 				JANUS_LOG(LOG_VERB, "Using certificates:\n\t%s\n\t%s\n", server_pem, server_key);
-				
-				relay_ctx->ssl_private_key_password = g_strdup(password)
+
+				relay_ctx->ssl_private_key_password = g_strdup(password);
 				relay_ctx->wss_port = wsport;
-				relay_ctx->wss_iface = g_strdup(ip ? ip : interface);		
+				relay_ctx->wss_iface = g_strdup(ip ? ip : interface);
 				relay_ctx->cert_key_path = g_strdup(server_key);
-				relay_ctx->cert_pem_path = g_strdup(server_pem);		
+				relay_ctx->cert_pem_path = g_strdup(server_pem);
 			}
 			g_free(ip);
-			
-		}			
+
+		}
 	}
 	janus_config_destroy(config);
 	config = NULL;
@@ -459,16 +461,16 @@ void* janus_srtc_relay_pre_create_plugin(const char *config_path){
 
 	srtc_handle_hangup_next = srtc_handle_hangup;
 	srtc_handle_hangup = srtc_handle_hangup_next;
-	
+
 	srtc_handle_call_next = srtc_handle_call;
 	srtc_handle_call = srtc_handle_call_next;
-	
+
 
 	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));
 	if(relay_ctx == 0){
 		if(relay_ctx == NULL){
 			JANUS_LOG(LOG_ERR, "srtc_relay_message_ctx_t  malloc failed!\n");
-			return NULL;	
+			return NULL;
 		}
 	}
 	memset(relay_ctx, 0,sizeof(srtc_relay_message_ctx_t));
@@ -477,8 +479,7 @@ void* janus_srtc_relay_pre_create_plugin(const char *config_path){
 	//create libwebsocket client context
 	struct lws_context_creation_info info;
     struct lws *wsi = NULL;
-    struct lws_protocols protocol;
- 
+
     memset(&info, 0, sizeof info);
     info.port = CONTEXT_PORT_NO_LISTEN;
    	//info.iface = NULL;
@@ -490,22 +491,15 @@ void* janus_srtc_relay_pre_create_plugin(const char *config_path){
     info.gid = -1;
     info.uid = -1;
     info.options = 0;
- 
-    protocol.name  = "janus-protocol";
-    protocol.callback = &janus_client_websockets_callback;
-    protocol.per_session_data_size = sizeof(struct wss_session_data);//自动创建data
-    protocol.rx_buffer_size = 0;
-    protocol.id = 0;
-    protocol.user = NULL;
- 
-    relay_ctx->wsc = lws_create_context(&info); 
+
+    relay_ctx->wsc = lws_create_context(&info);
 	if(relay_ctx->wsc == NULL) {
-		JANUS_LOG(LOG_ERR, "Error creating libwebsockets context...\n");		
+		JANUS_LOG(LOG_ERR, "Error creating libwebsockets context...\n");
 		goto ERROR;	/* No point in keeping the plugin loaded */
-	}	
+	}
 	GError *error = NULL;
 	g_atomic_int_set(&relay_ctx->destory_flag, 0);
-	ws_relay_thread = g_thread_try_new("ws thread", &janus_websockets_thread, relay_ctx, &error);
+	ws_relay_thread = g_thread_try_new("ws thread", &janus_relay_websockets_thread, relay_ctx, &error);
 	if(!ws_relay_thread) {
 		g_atomic_int_set(&relay_ctx->destory_flag, 0);
 		JANUS_LOG(LOG_ERR, "Got error %d (%s) trying to launch the WebSockets thread...\n", error->code, error->message ? error->message : "??");
@@ -522,7 +516,7 @@ ERROR:
 		g_free(relay_ctx);
 	}
 	return NULL;
-	
+
 }
 
 
