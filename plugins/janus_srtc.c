@@ -13,6 +13,7 @@
 srtc_handle_call_pt          srtc_handle_call;
 srtc_handle_accept_pt          srtc_handle_accept;
 srtc_handle_hangup_pt          srtc_handle_hangup;
+srtc_handle_register_pt 		srtc_handle_register;
 
 
 
@@ -107,9 +108,11 @@ janus_plugin janus_srtc_plugin =
 
 
 extern  srtc_module_t srtc_rlay_msg_module;
+extern  srtc_module_t srtc_user_module;
+
 srtc_module_t srtc_core_module;
 
-srtc_module_t* srtc_modules[]={&srtc_core_module, &srtc_rlay_msg_module};//简单的方法加载各个模块
+srtc_module_t* srtc_modules[]={&srtc_core_module, &srtc_rlay_msg_module, &srtc_user_module};//简单的方法加载各个模块
 int janus_max_srtc_module = sizeof(srtc_modules)/sizeof(srtc_module_t*);
 
 janus_plugin *create(void){
@@ -193,6 +196,15 @@ static void *janus_srtc_handler(void *data) {
 		const gchar *message_text = json_string_value(srtc);
 		if(!strcasecmp(message_text, "call")){
 			janus_srtc_handle_call_init(handle, transaction, root, jsep);
+		}else if(!strcasecmp(message_text, "accept")){
+
+		}else if(!strcasecmp(message_text, "hangup")){
+
+		}else if(!strcasecmp(message_text, "register")){
+
+		}
+		else{
+
 		}//有待继续添加其他
 		/* All the requests to this plugin are handled asynchronously */
 error:
@@ -380,7 +392,6 @@ static int
 static int
 	janus_srtc_core_handle_accept(janus_plugin_session *handle, json_t *message, janus_message_accept_t *v)
 {
-
 	return 0;
 }
 
@@ -390,19 +401,23 @@ static int
 	return 0;
 }
 static int janus_srtc_core_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
-		return srtc_incoming_rtp(handle, video, buf,len);
-
+	return 0;
 }
 static int janus_srtc_core_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len){
-	return srtc_incoming_rtcp(handle, video, buf,len);
+	return 0;
 
 }
+int janus_srtc_core_register(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
+	return 0;
+}
+
 void* janus_srtc_core_create_plugin(janus_callbacks *callback, const char *config_path){
 	srtc_handle_call = janus_srtc_core_handle_call;
 	srtc_handle_accept = janus_srtc_core_handle_accept;
 	srtc_handle_hangup = janus_srtc_core_handle_hangup;
 	srtc_incoming_rtp = janus_srtc_core_incoming_rtp;
 	srtc_incoming_rtcp = janus_srtc_core_incoming_rtcp;
+	srtc_handle_register = janus_srtc_core_register;
 	srtc_core_ctx_t *ctx =(srtc_core_ctx_t*)g_malloc(sizeof(srtc_core_ctx_t));
 	return ctx;
 }

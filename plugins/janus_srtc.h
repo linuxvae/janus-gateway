@@ -60,11 +60,13 @@ typedef int (* srtc_destroy_session_pt)(janus_plugin_session *handle, int *error
 typedef int (* srtc_init_pt)(janus_callbacks *callback, const char *config_path);
 typedef	int (* srtc_destroy_pt)(void);
 
+typedef int (*srtc_handle_register_pt)(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep);
 
 typedef struct {
 	char* caller_name;
 	char* callee_name;
 	char* app_key;
+	json_t* jsep;
 	int  relay;//是否转发到其他服务器
 	//有待完善
 	char *transaction;
@@ -101,6 +103,8 @@ typedef struct {
 extern srtc_handle_call_pt		   srtc_handle_call;
 extern srtc_handle_accept_pt		   srtc_handle_accept;
 extern srtc_handle_hangup_pt		   srtc_handle_hangup;
+extern srtc_handle_register_pt 		srtc_handle_register;
+
 
 //以下函数 自己需要用到就自己定义
 extern srtc_handle_message_pt          srtc_handle_message;
@@ -111,6 +115,6 @@ extern srtc_incoming_data_pt srtc_incoming_data;
 
 extern srtc_hangup_media_pt    srtc_hangup_media;
 extern srtc_destroy_session_pt          srtc_destroy_session;
-extern srtc_init_pt srtc_init;
-extern srtc_destroy_pt srtc_destroy;
+extern srtc_init_pt 	srtc_init;
+extern srtc_destroy_pt 	srtc_destroy;
 

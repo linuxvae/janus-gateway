@@ -1266,17 +1266,20 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		}		
 	}
 
+	int server_type = -1;
 	if(session == NULL ){
 		if(!signal_server)
+			server_type = SERVER_B;
 			goto Media_Server;
-		else{//accept 给signalserver 找不到session
+		else if(!strcasecmp(message_text, "call")){
+			server_type = SERVER_C;
 			json_t *body = json_object_get(root, "body");
 			/* Is there an SDP attached? */
-			json_t *callerusername = json_object_get(body, "callerusername");
-			const gchar *callerusername_text = json_string_value(callerusername);
-			session = janus_session_find_by_username(callerusername_text);
+			json_t *calleeusername = json_object_get(body, "calleeusername");
+			const gchar *calleeusername_text = json_string_value(calleeusername);
+			session = janus_session_find_by_username(calleeusername_text);
 			if(session == NULL){
-				JANUS_LOG(LOG_ERR, "Couldn't find any session %s \n", callerusername_text);
+				JANUS_LOG(LOG_ERR, "Couldn't find any session %s \n", calleeusername_text);
 				ret = janus_process_error(request, session_id, transaction_text, JANUS_ERROR_SESSION_NOT_FOUND, "No such session %"SCNu64"", session_id);
 				goto srtcdone;
 			}
@@ -1292,6 +1295,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
 		goto srtcdone;
 	}	
+	handle->app_handle->srtc_type = server_type;
 	if(signal_server == TRUE){
 		if(!strcasecmp(message_text, "unregister")){
 			if(handle != NULL) {

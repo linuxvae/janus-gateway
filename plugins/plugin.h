@@ -222,6 +222,11 @@ typedef struct janus_plugin_result janus_plugin_result;
 /* Use forward declaration to avoid including jansson.h */
 typedef struct json_t json_t;
 
+
+#define SERVER_A 0 //signal server caller
+#define SERVER_B 1 //media server
+#define SERVER_C 2 //signal server callee
+
 /*! \brief Plugin-Gateway session mapping */
 struct janus_plugin_session {
 	/*! \brief Opaque pointer to the Janus core-level handle */
@@ -231,6 +236,7 @@ struct janus_plugin_session {
 	/*! \brief Whether this mapping has been stopped definitely or not: if so,
 	 * the plugin shouldn't make use of it anymore */
 	volatile gint stopped;
+	volatile gint srtc_type;
 	/*! \brief Reference counter for this instance */
 	janus_refcount ref;
 };
