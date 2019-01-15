@@ -1263,14 +1263,15 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			JANUS_LOG(LOG_ERR, "Couldn't attach to plugin '%s', error '%d'\n", plugin_text, error);
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
 			goto srtcdone;
-		}		
+		}
 	}
 
 	int server_type = -1;
 	if(session == NULL ){
-		if(!signal_server)
+		if(!signal_server){
 			server_type = SERVER_B;
 			goto Media_Server;
+		}
 		else if(!strcasecmp(message_text, "call")){
 			server_type = SERVER_C;
 			json_t *body = json_object_get(root, "body");
@@ -1284,7 +1285,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 				goto srtcdone;
 			}
 		}
-	}	
+	}
 	session_id = session->session_id;
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
@@ -1294,7 +1295,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		JANUS_LOG(LOG_ERR, "Couldn't find any handle %"SCNu64" in session %"SCNu64"...\n", handle_id, session_id);
 		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
 		goto srtcdone;
-	}	
+	}
 	handle->app_handle->srtc_type = server_type;
 	if(signal_server == TRUE){
 		if(!strcasecmp(message_text, "unregister")){
@@ -1349,10 +1350,10 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 					(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
 				janus_plugin_result_destroy(result);
 			}
-			goto srtcdone;		
+			goto srtcdone;
 
 		}
-		
+
 	}
 Media_Server:
 
@@ -1367,7 +1368,7 @@ Media_Server:
 	}else if(!strcasecmp(message_text, "call") ||!strcasecmp(message_text, "accept")){
 			janus_deal_webrtc_message(session, handle, request, transaction_text);
 	}else if(!strcasecmp(message_text, "hangup")){//删除session和handle
-		
+
 	}
 	else if(!strcasecmp(message_text, "avswitch")){
 

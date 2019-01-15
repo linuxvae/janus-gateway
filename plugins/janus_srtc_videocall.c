@@ -86,14 +86,14 @@ static int
 	int error_code = 0;
 	char error_cause[512];
 
+	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
+	if(ctx == NULL){
+		return srtc_handle_call_next(handle, message, v);
+	}
 	if(signal_server){
 		if(handle->srtc_type == SERVER_C){//转发消息
 			int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, v->jsep);
 		}
-		return srtc_handle_call_next(handle, message, v);
-	}
-	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
-	if(ctx == NULL){
 		return srtc_handle_call_next(handle, message, v);
 	}
 	janus_mutex_lock(&ctx->sessions_mutex);
@@ -123,7 +123,7 @@ static int
 	g_atomic_int_set(&session->hangingup, 0);
 	g_atomic_int_set(&session->destroyed, 0);
 	janus_refcount_init(&session->ref, janus_srtc_videocall_session_free);
-	
+
 	session->username = g_strdup(v->caller_name);
 	janus_mutex_lock(&ctx->sessions_mutex);
 	g_hash_table_insert(ctx->sessions, (gpointer)session->username, session);
@@ -151,7 +151,7 @@ static int
 	int error_code = 0;
 	char error_cause[512];
 
-	if(signal_server){	
+	if(signal_server){
 		return srtc_handle_accept_next(handle, message, v);
 	}
 	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
@@ -160,7 +160,7 @@ static int
 	}
 	const char *msg_sdp_type = json_string_value(json_object_get(v->jsep, "type"));
 	const char *msg_sdp = json_string_value(json_object_get(v->jsep, "sdp"));
-		
+
 	janus_mutex_lock(&ctx->sessions_mutex);
 	if(g_hash_table_lookup(ctx->sessions, v->callee_name) != NULL) {
 		janus_mutex_unlock(&ctx->sessions_mutex);
@@ -189,7 +189,7 @@ static int
 	g_atomic_int_set(&session->destroyed, 0);
 	janus_refcount_init(&session->ref, janus_srtc_videocall_session_free);
 	srtc_set_module_session(handle, srtc_video_call_module, session);
-	
+
 	session->username = g_strdup(v->callee_name);
 	janus_mutex_lock(&ctx->sessions_mutex);
 	g_hash_table_insert(ctx->sessions, (gpointer)session->username, session);
@@ -244,7 +244,7 @@ static int
 	session->has_data = (strstr(msg_sdp, "DTLS/SCTP") != NULL);
 
 	/* Check if this user will simulcast */
-	json_t *msg_simulcast = json_object_get(msg->jsep, "simulcast");
+	json_t *msg_simulcast = json_object_get(v->jsep, "simulcast");
 	if(msg_simulcast && janus_get_codec_pt(msg_sdp, "vp8") > 0) {
 		JANUS_LOG(LOG_VERB, "VideoCall callee (%s) is going to do simulcasting\n", session->username);
 		session->ssrc[0] = json_integer_value(json_object_get(msg_simulcast, "ssrc-0"));
@@ -337,9 +337,13 @@ static int
 	return srtc_handle_call_next(handle, message, v);
 }
 static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
-	if(handle == NULL || g_atomic_int_get(&handle->stopped) || g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
+	if(handle == NULL || g_atomic_int_get(&handle->stopped) )//|| g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
 			return;
-	if(gateway) {
+	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
+	if(ctx == NULL){
+		return srtc_incoming_rtp_next(handle, video, buf,len);
+	}
+	if(ctx->gateway) {
 		/* Honour the audio/video active flags */
 		janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
 		if(!session) {
@@ -388,7 +392,7 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 				json_object_set_new(result, "videocodec", json_string(janus_videocodec_name(session->vcodec)));
 				json_object_set_new(result, "substream", json_integer(session->sim_context.substream));
 				json_object_set_new(event, "result", result);
-				gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, event, NULL);
+				ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, event, NULL);
 				json_decref(event);
 			}
 			if(peer->sim_context.need_pli) {
@@ -397,7 +401,7 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 				char rtcpbuf[12];
 				memset(rtcpbuf, 0, 12);
 				janus_rtcp_pli((char *)&rtcpbuf, 12);
-				gateway->relay_rtcp(session->handle, 1, rtcpbuf, 12);
+				ctx->gateway->relay_rtcp(session->handle, 1, rtcpbuf, 12);
 			}
 			if(peer->sim_context.changed_temporal) {
 				/* Notify the user about the temporal layer change */
@@ -408,7 +412,7 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 				json_object_set_new(result, "videocodec", json_string(janus_videocodec_name(session->vcodec)));
 				json_object_set_new(result, "temporal", json_integer(session->sim_context.templayer));
 				json_object_set_new(event, "result", result);
-				gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, event, NULL);
+				ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, event, NULL);
 				json_decref(event);
 			}
 			/* If we got here, update the RTP header and send the packet */
@@ -422,7 +426,7 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 			header->ssrc = htonl(1);
 			janus_recorder_save_frame(session->vrc, buf, len);
 			/* Send the frame back */
-			gateway->relay_rtp(peer->handle, video, buf, len);
+			ctx->gateway->relay_rtp(peer->handle, video, buf, len);
 			/* Restore header or core statistics will be messed up */
 			header->ssrc = htonl(ssrc);
 			header->timestamp = htonl(timestamp);
@@ -432,7 +436,7 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 				/* Save the frame if we're recording */
 				janus_recorder_save_frame(video ? session->vrc : session->arc, buf, len);
 				/* Forward the packet to the peer */
-				gateway->relay_rtp(peer->handle, video, buf, len);
+				ctx->gateway->relay_rtp(peer->handle, video, buf, len);
 			}
 		}
 	}
@@ -441,9 +445,13 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 
 }
 static int janus_srtc_video_call_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len){
-	if(handle == NULL || g_atomic_int_get(&handle->stopped) || g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
+	if(handle == NULL || g_atomic_int_get(&handle->stopped))// || g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
 		return;
-	if(gateway) {
+	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
+	if(ctx == NULL){
+		return srtc_incoming_rtcp_next(handle, video, buf,len);
+	}
+	if(ctx->gateway) {
 		janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
@@ -461,19 +469,24 @@ static int janus_srtc_video_call_incoming_rtcp(janus_plugin_session *handle, int
 			/* If a REMB arrived, make sure we cap it to our configuration, and send it as a video RTCP */
 			if(session->bitrate > 0)
 				janus_rtcp_cap_remb(buf, len, session->bitrate);
-			gateway->relay_rtcp(peer->handle, 1, buf, len);
+			ctx->gateway->relay_rtcp(peer->handle, 1, buf, len);
 			return;
 		}
-		gateway->relay_rtcp(peer->handle, video, buf, len);
+		ctx->gateway->relay_rtcp(peer->handle, video, buf, len);
 	}
 
 	return srtc_incoming_rtcp_next(handle, video, buf,len);
 
 }
 static int janus_srtc_video_call_incoming_data(janus_plugin_session *handle, char *buf, int len){
-	if(handle == NULL || g_atomic_int_get(&handle->stopped) || g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
+	if(handle == NULL || g_atomic_int_get(&handle->stopped))// || g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
 		return;
-	if(gateway) {
+
+	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
+	if(ctx == NULL){
+		return srtc_incoming_data_next(handle ,buf ,len);
+	}
+	if(ctx->gateway) {
 		janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
@@ -495,7 +508,7 @@ static int janus_srtc_video_call_incoming_data(janus_plugin_session *handle, cha
 		/* Save the frame if we're recording */
 		janus_recorder_save_frame(session->drc, buf, len);
 		/* Forward the packet to the peer */
-		gateway->relay_data(peer->handle, text, strlen(text));
+		ctx->gateway->relay_data(peer->handle, text, strlen(text));
 		g_free(text);
 	}
 
