@@ -6,7 +6,7 @@
 #define JANUS_SRTC_DESCRIPTION		"This is a simple video call plugin for Janus, allowing two WebRTC peers to call each other through a server."
 #define JANUS_SRTC_NAME			"JANUS SRTC plugin"
 #define JANUS_SRTC_AUTHOR			"Meetecho s.r.l."
-#define JANUS_SRTC_PACKAGE			"janus.plugin.videocall"
+#define JANUS_SRTC_PACKAGE			"janus.plugin.srtc"
 
 
 srtc_handle_call_pt          srtc_handle_call;
@@ -24,8 +24,36 @@ srtc_destroy_session_pt          srtc_destroy_session;
 srtc_init_pt							srtc_init;
 srtc_destroy_pt						srtc_destroy;
 
-static int srtc_module_index = -1;//可以作成一个结构体
 
+static volatile gint initialized = 0, stopping = 0;
+static janus_callbacks *gateway = NULL;
+static GThread *handler_thread;
+static void *janus_srtc_handler(void *data);
+
+
+typedef struct janus_srtc_message {
+	janus_plugin_session *handle;
+	char *transaction;
+	json_t *message;
+	json_t *jsep;
+} janus_srtc_message;
+static GAsyncQueue *messages = NULL;
+static janus_srtc_message exit_message;
+
+
+static void janus_srtc_session_destroy(janus_srtc_session_t *session) {
+	if(session && g_atomic_int_compare_and_exchange(&session->destroyed, 0, 1))
+		janus_refcount_decrease(&session->ref);
+}
+
+static void janus_srtc_session_free(const janus_refcount *session_ref) {
+	janus_srtc_session_t *session = janus_refcount_containerof(session_ref, janus_srtc_session_t, ref);
+	/* Remove the reference to the core plugin session */
+	janus_refcount_decrease(&session->handle->ref);
+	/* This session can be destroyed, free all the resources */
+	//g_free(session->username);
+	g_free(session);
+}
 
 
 /* Plugin methods */
@@ -88,15 +116,135 @@ janus_plugin *create(void){
 
 	return &janus_srtc_plugin;
 }
+static void *janus_srtc_handler(void *data) {
+
+	JANUS_LOG(LOG_VERB, "Joining janus_srtc_handler handler thread\n");
+	janus_srtc_message *srtc_msg = NULL;
+	int error_code = 0;
+	char error_cause[512];
+	json_t *root = NULL;
+	while(g_atomic_int_get(&initialized) && !g_atomic_int_get(&stopping)) {
+		srtc_msg = g_async_queue_pop(messages);
+		if(srtc_msg == NULL)
+			continue;
+		if(srtc_msg == &exit_message)
+			break;
+		if(srtc_msg->handle == NULL) {
+			janus_srtc_message_free(srtc_msg);
+			continue;
+		}
+		janus_videocall_session *session = (janus_videocall_session *)srtc_msg->handle->plugin_handle;
+		if(!session) {
+			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
+			janus_srtc_message_free(srtc_msg);
+			continue;
+		}
+		if(g_atomic_int_get(&session->destroyed)) {
+			janus_srtc_message_free(srtc_msg);
+			continue;
+		}
+		
+
+		error_code = 0;
+		root = srtc_msg->message;
+		json_t *jsep = srtc_msg->jsep;
+		char *transaction = srtc_msg->transaction;
+		janus_plugin_session *handle = srtc_msg->handle;
+		if(srtc_msg->message == NULL) {
+			JANUS_LOG(LOG_ERR, "No message??\n");
+			error_code = JANUS_VIDEOCALL_ERROR_NO_MESSAGE;
+			g_snprintf(error_cause, 512, "%s", "No message??");
+			goto error;
+		}
+		if(!json_is_object(root)) {
+			JANUS_LOG(LOG_ERR, "JSON error: not an object\n");
+			error_code = JANUS_VIDEOCALL_ERROR_INVALID_JSON;
+			g_snprintf(error_cause, 512, "JSON error: not an object");
+			goto error;
+		}
+
+		json_t *srtc = json_object_get(root, "srtc");
+		const gchar *message_text = json_string_value(srtc);
+		if(!strcasecmp(message_text, "call")){
+			janus_srtc_handle_call_init(handle, transaction, root, jsep);
+		}//有待继续添加其他
+		/* All the requests to this plugin are handled asynchronously */
+		return NULL;
+	}
+
+}
+static void janus_srtc_message_free(janus_srtc_message *msg) {
+	if(!msg || msg == &exit_message)
+		return;
+
+	if(msg->handle && msg->handle->plugin_handle) {
+		janus_srtc_session_t *session = (janus_srtc_session_t *)msg->handle->plugin_handle;
+		janus_refcount_decrease(&session->ref);
+	}
+	msg->handle = NULL;
+
+	g_free(msg->transaction);
+	msg->transaction = NULL;
+	if(msg->message)
+		json_decref(msg->message);
+	msg->message = NULL;
+	if(msg->jsep)
+		json_decref(msg->jsep);
+	msg->jsep = NULL;
+
+	g_free(msg);
+}
+
+
 int janus_srtc_init(janus_callbacks *callback, const char *config_path){
+	if(g_atomic_int_get(&stopping)) {
+		/* Still stopping from before */
+		return -1;
+	}
+	
+	if(callback == NULL || config_path == NULL) {
+		/* Invalid arguments */
+		return -1;
+	}
+	messages = g_async_queue_new_full((GDestroyNotify) janus_srtc_message_free);
+	gateway = callback;
+	g_atomic_int_set(&initialized, 1);
+	/* Launch the thread that will handle incoming messages */
+	GError *error = NULL;
+	handler_thread = g_thread_try_new("srtc handler", janus_srtc_handler, NULL, &error);
+	if(error != NULL) {
+		g_atomic_int_set(&initialized, 0);
+		JANUS_LOG(LOG_ERR, "Got error %d (%s) trying to launch the VideoCall handler thread...\n", error->code, error->message ? error->message : "??");
+		return -1;
+	}
+	
 	int i=0;
 	for(;i<janus_max_srtc_module;i++){
 		srtc_modules[i]->mod_ctx = srtc_modules[i]->srtc_pre_create_plugin_pt(config_path);
 		srtc_modules[i]->srtc_module_index = i;
 	}
+	
+
 	return 0;
 }
-void janus_srtc_destroy(void);
+void janus_srtc_destroy(void){
+	if(!g_atomic_int_get(&initialized))
+		return;
+	g_atomic_int_set(&stopping, 1);
+
+	g_async_queue_push(messages, &exit_message);
+	if(handler_thread != NULL) {
+		g_thread_join(handler_thread);
+		handler_thread = NULL;
+	}
+	g_async_queue_unref(messages);
+	messages = NULL;
+	g_atomic_int_set(&initialized, 0);
+	g_atomic_int_set(&stopping, 0);
+	JANUS_LOG(LOG_INFO, "%s destroyed!\n", JANUS_VIDEOCALL_NAME);
+
+
+}
 int janus_srtc_get_api_compatibility(void){
 	return 0;
 }
@@ -119,7 +267,17 @@ const char *janus_srtc_get_package(void){
 	return NULL;
 }
 void janus_srtc_create_session(janus_plugin_session *handle, int *error){
+	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized)) {
+		*error = -1;
+		return;
+	}
+	janus_srtc_session_t *session = g_malloc0(sizeof(janus_srtc_session_t));
+	session->handle = handle;
+	handle->plugin_handle = session;
+	janus_refcount_init(&session->ref, janus_srtc_session_free);
+	return;
 
+	
 }
 int
 	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
@@ -133,12 +291,26 @@ int
 struct janus_plugin_result *
 	janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
-	json_t *srtc = json_object_get(message, "srtc");
-	const gchar *message_text = json_string_value(srtc);
-	if(!strcasecmp(message_text, "call")){
-		janus_srtc_handle_call_init(handle, transaction, message, jsep);
-	}//有待继续添加其他
-	return NULL;
+
+	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
+			return janus_plugin_result_new(JANUS_PLUGIN_ERROR, g_atomic_int_get(&stopping) ? "Shutting down" : "Plugin not initialized", NULL);
+		janus_videocall_session *session = (janus_videocall_session *)handle->plugin_handle;
+		if(!session)
+			return janus_plugin_result_new(JANUS_PLUGIN_ERROR, "No session associated with this handle", NULL);
+	
+		janus_videocall_message *msg = g_malloc(sizeof(janus_videocall_message));
+		/* Increase the reference counter for this session: we'll decrease it after we handle the message */
+		janus_refcount_increase(&session->ref);
+	
+		msg->handle = handle;
+		msg->transaction = transaction;
+		msg->message = message;
+		msg->jsep = jsep;
+		g_async_queue_push(messages, msg);
+	
+		/* All the requests to this plugin are handled asynchronously */
+		return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
+
 }
 void janus_srtc_setup_media(janus_plugin_session *handle){
 
@@ -156,9 +328,25 @@ void janus_srtc_slow_link(janus_plugin_session *handle, int uplink, int video){
 
 }
 void janus_srtc_hangup_media(janus_plugin_session *handle){
-
+	
 }
 void janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
+
+	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized)) {
+		*error = -1;
+		return;
+	}
+	janus_srtc_session_t *session = (janus_srtc_session_t*)handle->plugin_handle;
+	if(!session) {
+		JANUS_LOG(LOG_ERR, "No srtc session associated with this handle...\n");
+		*error = -2;
+		return;
+	}
+	
+	janus_videocall_hangup_media(handle);
+	return;
+
+	
 	return ;
 }
 json_t *janus_srtc_query_session(janus_plugin_session *handle){
@@ -186,6 +374,7 @@ static int
 static int
 	janus_srtc_core_handle_accept(janus_plugin_session *handle, json_t *message, janus_message_accept_t *v)
 {
+	
 	return 0;
 }
 

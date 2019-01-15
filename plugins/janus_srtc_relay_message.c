@@ -222,7 +222,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 
 
 static int
-	janus_srtc_core_handle_call(janus_plugin_session *handle, json_t *root, janus_message_call_t *v)
+	janus_srtc_relay_handle_call(janus_plugin_session *handle, json_t *root, janus_message_call_t *v)
 {
 	if(v->relay){
 		if(signal_server){//信令服务器处理relay的call 直接通过handle中的session sendmessage 发给B
@@ -243,7 +243,7 @@ static int
 	return srtc_handle_accept_next(handle, root, v);
 }
 static int
-	janus_srtc_core_handle_accept(janus_plugin_session *handle, json_t *root, janus_message_accept_t *v)
+	janus_srtc_relay_handle_accept(janus_plugin_session *handle, json_t *root, janus_message_accept_t *v)
 {
 	if(v->relay){
 		if(signal_server){//找到callee 发送,由其
@@ -262,7 +262,7 @@ static int
 }
 
 static int
-	janus_srtc_core_handle_hangup(janus_plugin_session *handle, json_t *root, janus_message_hangup_t *v)
+	janus_srtc_relay_handle_hangup(janus_plugin_session *handle, json_t *root, janus_message_hangup_t *v)
 {
 	if(v->relay){
 		if(signal_server){//找到callee 发送
@@ -457,13 +457,13 @@ void *janus_relay_websockets_thread(void *data) {
 void* janus_srtc_relay_pre_create_plugin(const char *config_path){
 
 	srtc_handle_accept_next = srtc_handle_accept;
-	srtc_handle_accept = srtc_handle_accept_next;
+	srtc_handle_accept = janus_srtc_relay_handle_accept;
 
 	srtc_handle_hangup_next = srtc_handle_hangup;
-	srtc_handle_hangup = srtc_handle_hangup_next;
+	srtc_handle_hangup = janus_srtc_relay_handle_hangup;
 
 	srtc_handle_call_next = srtc_handle_call;
-	srtc_handle_call = srtc_handle_call_next;
+	srtc_handle_call = janus_srtc_relay_handle_call;
 
 
 	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));

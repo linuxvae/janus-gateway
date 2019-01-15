@@ -1209,14 +1209,16 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
 	session = janus_session_find_by_username(username_text);
 	//create handle
-	const gchar *plugin_text = "video_call";
+	const gchar *plugin_text = "janus.plugin.srtc";
 	janus_plugin *plugin_t = janus_plugin_find(plugin_text);
 	if(plugin_t == NULL) {
 		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_NOT_FOUND, "No such plugin '%s'", plugin_text);
 		goto srtcdone;
 	}
-
-	if(session == NULL && !strcasecmp(message_text, "register")){
+	//三种情况需要创建session和handle
+	if(session == NULL &&
+		( (!strcasecmp(message_text, "register")||
+		(!signal_server && (!strcasecmp(message_text, "call")||!strcasecmp(message_text, "accept"))))) ){
 		session = janus_session_create_srtc(session_id, username_text);
 		if(session == NULL) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
@@ -1261,42 +1263,25 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			JANUS_LOG(LOG_ERR, "Couldn't attach to plugin '%s', error '%d'\n", plugin_text, error);
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
 			goto srtcdone;
-		}
-		json_incref(root);
-		janus_plugin_result *result = plugin_t->handle_message(handle->app_handle,
-					g_strdup((char *)transaction_text), root, NULL);
-		if(result == NULL) {
-			/* Something went horribly wrong! */
-			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
-			goto srtcdone;
-		}
-		if(result->type == JANUS_PLUGIN_OK) {
-			/* Prepare JSON reply */
-			json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
-			/* Send the success reply */
-			ret = janus_process_success(request, reply);
-		}else if(result->type == JANUS_PLUGIN_OK_WAIT) {
-			/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
-			json_t *reply = janus_create_srtc_message("processing", session_id, transaction_text);
-			if(result->text)
-				json_object_set_new(reply, "hint", json_string(result->text));
-			/* Send the success reply */
-			ret = janus_process_success(request, reply);
-		} else {
-			/* Something went horribly wrong! */
-			ret = janus_process_srtc_error_string(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
-				(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
-			janus_plugin_result_destroy(result);
-		}
-		goto srtcdone;
+		}		
 	}
-	if(signal_server == FALSE && !strcasecmp(message_text, "accept")){
-		//创建session和handler
-	}
-	if(session == NULL){
-		ret = janus_process_srtc_error_string(request, session_id, NULL, SRTC_ERROR_MESSAGE_PARAM, "username not register and not a register message!");
-		goto srtcdone;
-	}
+
+	if(session == NULL ){
+		if(!signal_server)
+			goto Media_Server;
+		else{//accept 给signalserver 找不到session
+			json_t *body = json_object_get(root, "body");
+			/* Is there an SDP attached? */
+			json_t *callerusername = json_object_get(body, "callerusername");
+			const gchar *callerusername_text = json_string_value(callerusername);
+			session = janus_session_find_by_username(callerusername_text);
+			if(session == NULL){
+				JANUS_LOG(LOG_ERR, "Couldn't find any session %s \n", callerusername_text);
+				ret = janus_process_error(request, session_id, transaction_text, JANUS_ERROR_SESSION_NOT_FOUND, "No such session %"SCNu64"", session_id);
+				goto srtcdone;
+			}
+		}
+	}	
 	session_id = session->session_id;
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
@@ -1306,8 +1291,68 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		JANUS_LOG(LOG_ERR, "Couldn't find any handle %"SCNu64" in session %"SCNu64"...\n", handle_id, session_id);
 		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
 		goto srtcdone;
-	}
+	}	
+	if(signal_server == TRUE){
+		if(!strcasecmp(message_text, "unregister")){
+			if(handle != NULL) {
+				/* Query is a session-level command */
+				ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
+				goto srtcdone;
+			}
+			janus_mutex_lock(&sessions_mutex);
+			g_hash_table_remove(sessions, &session->session_id);
+			janus_mutex_unlock(&sessions_mutex);
+			/* Notify the source that the session has been destroyed */
+			if(session->source && session->source->transport) {
+				session->source->transport->session_over(session->source->instance, session->session_id, FALSE, FALSE);
+			}
+			/* Schedule the session for deletion */
+			janus_session_destroy(session);
+			//调用handle clear -》remove handle-》janus_ice_handle_destroy-》 push janus_ice_detach_handle-》plugin->destroy_session 插件删除
 
+			/* Prepare JSON reply */
+			json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
+			/* Send the success reply */
+			ret = janus_process_success(request, reply);
+			/* Notify event handlers as well */
+			if(janus_events_is_enabled())
+				janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);
+			goto srtcdone;
+		}else{//call,relay call
+			json_incref(root);
+			janus_plugin_result *result = plugin_t->handle_message(handle->app_handle,
+						g_strdup((char *)transaction_text), root, NULL);
+			if(result == NULL) {
+				/* Something went horribly wrong! */
+				ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
+				goto srtcdone;
+			}
+			if(result->type == JANUS_PLUGIN_OK) {
+				/* Prepare JSON reply */
+				json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
+				/* Send the success reply */
+				ret = janus_process_success(request, reply);
+			}else if(result->type == JANUS_PLUGIN_OK_WAIT) {
+				/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
+				json_t *reply = janus_create_srtc_message("processing", session_id, transaction_text);
+				if(result->text)
+					json_object_set_new(reply, "hint", json_string(result->text));
+				/* Send the success reply */
+				ret = janus_process_success(request, reply);
+			} else {
+				/* Something went horribly wrong! */
+				ret = janus_process_srtc_error_string(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
+					(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
+				janus_plugin_result_destroy(result);
+			}
+			goto srtcdone;		
+
+		}
+		
+	}
+Media_Server:
+
+	//deal media server
 	//find session by user name
 	if(!strcasecmp(message_text, "keepalive")){
 		/* Just a keep-alive message, reply with an ack */
@@ -1317,60 +1362,8 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		ret = janus_process_success(request, reply);
 	}else if(!strcasecmp(message_text, "call") ||!strcasecmp(message_text, "accept")){
 			janus_deal_webrtc_message(session, handle, request, transaction_text);
-
-	}else if(!strcasecmp(message_text, "hangup")){//或者其他消息都走这里
-		json_incref(root);
-		janus_plugin_result *result = plugin_t->handle_message(handle->app_handle,
-					g_strdup((char *)transaction_text), root, NULL);
-		if(result == NULL) {
-			/* Something went horribly wrong! */
-			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
-			goto srtcdone;
-		}
-		if(result->type == JANUS_PLUGIN_OK) {
-			/* Prepare JSON reply */
-			json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
-			/* Send the success reply */
-			ret = janus_process_success(request, reply);
-		}else if(result->type == JANUS_PLUGIN_OK_WAIT) {
-			/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
-			json_t *reply = janus_create_srtc_message("processing", session_id, transaction_text);
-			if(result->text)
-				json_object_set_new(reply, "hint", json_string(result->text));
-			/* Send the success reply */
-			ret = janus_process_success(request, reply);
-		} else {
-			/* Something went horribly wrong! */
-			ret = janus_process_srtc_error_string(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
-				(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
-			janus_plugin_result_destroy(result);
-		}
-		goto srtcdone;
-
-	}else if(!strcasecmp(message_text, "unregister")){
-		if(handle != NULL) {
-			/* Query is a session-level command */
-			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
-			goto srtcdone;
-		}
-		janus_mutex_lock(&sessions_mutex);
-		g_hash_table_remove(sessions, &session->session_id);
-		janus_mutex_unlock(&sessions_mutex);
-		/* Notify the source that the session has been destroyed */
-		if(session->source && session->source->transport) {
-			session->source->transport->session_over(session->source->instance, session->session_id, FALSE, FALSE);
-		}
-		/* Schedule the session for deletion */
-		janus_session_destroy(session);
-		//调用handle clear -》remove handle-》janus_ice_handle_destroy-》 push janus_ice_detach_handle-》plugin->destroy_session 插件删除
-
-		/* Prepare JSON reply */
-		json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
-		/* Send the success reply */
-		ret = janus_process_success(request, reply);
-		/* Notify event handlers as well */
-		if(janus_events_is_enabled())
-			janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);
+	}else if(!strcasecmp(message_text, "hangup")){//删除session和handle
+		
 	}
 	else if(!strcasecmp(message_text, "avswitch")){
 
