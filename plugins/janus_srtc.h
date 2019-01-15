@@ -12,11 +12,26 @@
 #include "../sdp-utils.h"
 #include "../utils.h"
 
-
+/* Error codes */
+#define JANUS_VIDEOCALL_ERROR_UNKNOWN_ERROR			499
+#define JANUS_VIDEOCALL_ERROR_NO_MESSAGE			470
+#define JANUS_VIDEOCALL_ERROR_INVALID_JSON			471
+#define JANUS_VIDEOCALL_ERROR_INVALID_REQUEST		472
+#define JANUS_VIDEOCALL_ERROR_REGISTER_FIRST		473
+#define JANUS_VIDEOCALL_ERROR_INVALID_ELEMENT		474
+#define JANUS_VIDEOCALL_ERROR_MISSING_ELEMENT		475
+#define JANUS_VIDEOCALL_ERROR_USERNAME_TAKEN		476
+#define JANUS_VIDEOCALL_ERROR_ALREADY_REGISTERED	477
+#define JANUS_VIDEOCALL_ERROR_NO_SUCH_USERNAME		478
+#define JANUS_VIDEOCALL_ERROR_USE_ECHO_TEST			479
+#define JANUS_VIDEOCALL_ERROR_ALREADY_IN_CALL		480
+#define JANUS_VIDEOCALL_ERROR_NO_CALL				481
+#define JANUS_VIDEOCALL_ERROR_MISSING_SDP			482
+#define JANUS_VIDEOCALL_ERROR_INVALID_SDP			483
 
 typedef struct {
 	int srtc_module_index;
-	void	*(*srtc_pre_create_plugin_pt) (const char *config_path);
+	void	*(*srtc_pre_create_plugin_pt) (janus_callbacks *callback, const char *config_path);
 	int (*srtc_pre_destroy_plugin_pt) (void*);
 	void* mod_ctx;
 }srtc_module_t;

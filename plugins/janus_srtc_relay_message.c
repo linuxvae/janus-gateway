@@ -23,8 +23,8 @@ static size_t json_format = JSON_INDENT(3) | JSON_PRESERVE_ORDER;
 static GThread *ws_relay_thread = NULL;
 
 
-void* janus_srtc_relay_pre_create_plugin();
 
+void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *config_path);
 srtc_module_t srtc_rlay_msg_module = {
 	0,
 	janus_srtc_relay_pre_create_plugin,
@@ -454,7 +454,7 @@ void *janus_relay_websockets_thread(void *data) {
 }
 
 
-void* janus_srtc_relay_pre_create_plugin(const char *config_path){
+void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *config_path){
 
 	srtc_handle_accept_next = srtc_handle_accept;
 	srtc_handle_accept = janus_srtc_relay_handle_accept;
