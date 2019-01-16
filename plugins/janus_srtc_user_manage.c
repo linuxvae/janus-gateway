@@ -42,37 +42,37 @@ typedef struct janus_srtc_user_manage_session {
 
 static int
 	janus_srtc_user_manage_handle_call(janus_plugin_session *handle, json_t *message, janus_message_call_t *v)
-{	
+{
 	if(signal_server){
 		json_t *relay = json_object_get(message, "relay");
 		if(relay != NULL){
 			return srtc_handle_call_next(handle, message, v);
 		}
-		
+
 		json_t *username = json_object_get(message, "username");
 		const gchar *username_text = json_string_value(username);
 		//find relay signal server
 		json_t *body = json_object_get(message, "body");
 		json_t *calleename = json_object_get(body, "calleename");
 		const gchar *calleename_text = json_string_value(calleename);
-		//find calleename_text in db 
+		//find calleename_text in db
 		//找到一个合适的mediaserver
 		//通过性能比较等 IP: find_media_server() 设置 当前正在通话 且设置使用的mediaserver IP
 		char *relay_ip = "192.168.1.1";
 		int relay_port = 8089;
 		char *media_ip = "192.168.1.1";
 		int *media_port = 8089;
-	
+
 		relay = json_object();
 		json_t *media = json_object();
 		json_object_set_new(relay, "relay_port", json_integer(relay_port));
 		json_object_set_new(relay, "relay_ip", json_string(relay_ip));
 		json_object_set_new(media, "media_port", json_integer(media_port));
 		json_object_set_new(media, "media_ip", json_string(media_ip));
-		json_object_set_new(message, "relay", relay);	
+		json_object_set_new(message, "relay", relay);
 		json_object_set_new(message, "media", media);
 	}
-	
+
 	return srtc_handle_call_next(handle, message, v);
 }
 static int
@@ -83,15 +83,15 @@ static int
 		json_t *body = json_object_get(message, "body");
 		json_t *callername = json_object_get(body, "callername");
 		const gchar *callername_text = json_string_value(callername);
-		//find calleename_text in db 
+		//find calleename_text in db
 		//找到一个合适的mediaserver
 		//IP: find_media_server_by_caller(callername_text)
 		char *media_ip = "192.168.1.1";
-		int *media_port = 8089;	
-		
-		json_t *media = json_object();	
+		int *media_port = 8089;
+
+		json_t *media = json_object();
 		json_object_set_new(media, "media_port", json_integer(media_port));
-		json_object_set_new(media, "media_ip", json_string(media_ip));	
+		json_object_set_new(media, "media_ip", json_string(media_ip));
 		json_object_set_new(message, "media", media);
 	}
 
@@ -106,7 +106,7 @@ static int
 }
 
 int janus_srtc_user_manage_destory_plugin(void *ctx_){
-	srtc_video_call_ctx_t *ctx =(srtc_user_manage_ctx_t*)ctx_;
+	srtc_user_manage_ctx_t*ctx =(srtc_user_manage_ctx_t*)ctx_;
 
 	g_free(ctx);
 	ctx = NULL;
@@ -123,7 +123,7 @@ int janus_srtc_user_manage_handle_register(janus_plugin_session *handle, char *t
 	const gchar *username_text = json_string_value(username);
 	char *public_ip = janus_get_public_ip();
 	//存储
-	
+
 	return 0;
 }
 
@@ -136,7 +136,7 @@ void* janus_srtc_user_manage_create_plugin(janus_callbacks *callback, const char
 	srtc_handle_hangup = janus_srtc_user_manage_handle_hangup;
 	srtc_handle_register_next = srtc_handle_register;
 	srtc_handle_register = janus_srtc_user_manage_handle_register;
-	srtc_user_manage_ctx_t *ctx =(srtc_user_manage_ctx_t*)g_malloc(sizeof(srtc_video_call_ctx_t));
+	srtc_user_manage_ctx_t *ctx =(srtc_user_manage_ctx_t*)g_malloc(sizeof(srtc_user_manage_ctx_t));
 	memset(ctx, 0,sizeof(srtc_user_manage_ctx_t));
 	return ctx;
 }

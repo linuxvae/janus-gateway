@@ -21,6 +21,7 @@ srtc_handle_message_pt          srtc_handle_message;
 srtc_create_session_pt       srtc_create_session;
 srtc_incoming_rtp_pt    srtc_incoming_rtp;
 srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
+srtc_incoming_data_pt srtc_incoming_data;
 srtc_hangup_media_pt    srtc_hangup_media;
 srtc_destroy_session_pt          srtc_destroy_session;
 srtc_init_pt							srtc_init;
@@ -108,11 +109,11 @@ janus_plugin janus_srtc_plugin =
 
 
 extern  srtc_module_t srtc_rlay_msg_module;
-extern  srtc_module_t srtc_user_module;
+extern  srtc_module_t srtc_user_manage_module;
 
 srtc_module_t srtc_core_module;
 
-srtc_module_t* srtc_modules[]={&srtc_core_module, &srtc_rlay_msg_module, &srtc_user_module};//简单的方法加载各个模块
+srtc_module_t* srtc_modules[]={&srtc_core_module, &srtc_rlay_msg_module, &srtc_user_manage_module};//简单的方法加载各个模块
 int janus_max_srtc_module = sizeof(srtc_modules)/sizeof(srtc_module_t*);
 
 janus_plugin *create(void){

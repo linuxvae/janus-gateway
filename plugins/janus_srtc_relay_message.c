@@ -277,6 +277,37 @@ static int
 	return srtc_handle_accept_next(handle, root, v);
 }
 
+static char *janus_websockets_get_interface_name(const char *ip) {
+	struct ifaddrs *addrs = NULL, *iap = NULL;
+	if(getifaddrs(&addrs) == -1)
+		return NULL;
+	for(iap = addrs; iap != NULL; iap = iap->ifa_next) {
+			if(iap->ifa_addr && (iap->ifa_flags & IFF_UP)) {
+						if(iap->ifa_addr->sa_family == AF_INET) {
+										struct sockaddr_in *sa = (struct sockaddr_in *)(iap->ifa_addr);
+										char buffer[16];
+										inet_ntop(iap->ifa_addr->sa_family, (void *)&(sa->sin_addr), buffer, sizeof(buffer));
+										if(!strcmp(ip, buffer)) {
+															char *iface = g_strdup(iap->ifa_name);
+															freeifaddrs(addrs);
+															return iface;
+														}
+									} else if(iap->ifa_addr->sa_family == AF_INET6) {
+													struct sockaddr_in6 *sa = (struct sockaddr_in6 *)(iap->ifa_addr);
+													char buffer[48];
+													inet_ntop(iap->ifa_addr->sa_family, (void *)&(sa->sin6_addr), buffer, sizeof(buffer));
+													if(!strcmp(ip, buffer)) {
+																		char *iface = g_strdup(iap->ifa_name);
+																		freeifaddrs(addrs);
+																		return iface;
+																	}
+												}
+					}
+		}
+	freeifaddrs(addrs);
+	return NULL;
+}
+
 static int janus_srtc_relay_message_parse_config_file(srtc_relay_message_ctx_t *relay_ctx, const char *config_path){
 	//解析配置文件进行赋值
 	/* Read configuration */

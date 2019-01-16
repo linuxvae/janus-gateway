@@ -440,9 +440,9 @@ endif
 
 if ENABLE_PLUGIN_SRTC
 plugin_LTLIBRARIES += plugins/libjanus_srtc.la
-plugins_libjanus_srtc_la_SOURCES = plugins/janus_srtc.c plugins/janus_srtc_videocall.c plugins/janus_srtc.h plugins/janus_srtc_relay_message.c
+plugins_libjanus_srtc_la_SOURCES = plugins/janus_srtc.c plugins/janus_srtc_videocall.c plugins/janus_srtc.h plugins/janus_srtc_relay_message.c plugins/janus_srtc_user_manage.c
 plugins_libjanus_srtc_la_CFLAGS = $(plugins_cflags)
-plugins_libjanus_srtc_la_LDFLAGS = $(plugins_ldflags)
+plugins_libjanus_srtc_la_LDFLAGS = $(plugins_ldflags) $(WS_MANUAL_LIBS)
 plugins_libjanus_srtc_la_LIBADD = $(plugins_libadd)
 conf_DATA += conf/janus.plugin.srtc.jcfg.sample
 EXTRA_DIST += conf/janus.plugin.srtc.jcfg.sample
