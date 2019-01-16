@@ -265,25 +265,26 @@ void janus_srtc_destroy(void){
 
 }
 int janus_srtc_get_api_compatibility(void){
-	return 0;
+	/* Important! This is what your plugin MUST always return: don't lie here or bad things will happen */
+	return JANUS_PLUGIN_API_VERSION;
 }
 int janus_srtc_get_version(void){
-	return 0;
+	return JANUS_SRTC_VERSION;
 }
 const char *janus_srtc_get_version_string(void){
-	return NULL;
+	return JANUS_SRTC_VERSION_STRING;
 }
 const char *janus_srtc_get_description(void){
-	return NULL;
+	return JANUS_SRTC_DESCRIPTION;
 }
 const char *janus_srtc_get_name(void){
-	return NULL;
+	return JANUS_SRTC_NAME;
 }
 const char *janus_srtc_get_author(void){
-	return NULL;
+	return JANUS_SRTC_AUTHOR;
 }
 const char *janus_srtc_get_package(void){
-	return NULL;
+	return JANUS_SRTC_PACKAGE;
 }
 void janus_srtc_create_session(janus_plugin_session *handle, int *error){
 	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized)) {
