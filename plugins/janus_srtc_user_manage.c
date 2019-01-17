@@ -65,10 +65,10 @@ static int
 
 		relay = json_object();
 		json_t *media = json_object();
-		json_object_set_new(relay, "relay_port", json_integer(relay_port));
-		json_object_set_new(relay, "relay_ip", json_string(relay_ip));
-		json_object_set_new(media, "media_port", json_integer(media_port));
-		json_object_set_new(media, "media_ip", json_string(media_ip));
+		json_object_set_new(relay, "dst_port", json_integer(relay_port));
+		json_object_set_new(relay, "dst_ip", json_string(relay_ip));
+		json_object_set_new(media, "dst_port", json_integer(media_port));
+		json_object_set_new(media, "dst_ip", json_string(media_ip));
 		json_object_set_new(message, "relay", relay);
 		json_object_set_new(message, "media", media);
 	}
@@ -102,7 +102,7 @@ static int
 	janus_srtc_user_manage_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
 {
 	//清除db的状态且清除mediaserver
-	return srtc_handle_call_next(handle, message, v);
+	return srtc_handle_hangup_next(handle, message, v);
 }
 
 int janus_srtc_user_manage_destory_plugin(void *ctx_){

@@ -23,6 +23,7 @@ CFLAGS="$CFLAGS \
 	-fstack-protector-all \
 	-fstrict-aliasing \
 	-ggdb3 \
+	-O0 -DDEBUG\
 	-pthread \
 	-Wall \
 	-Warray-bounds \
@@ -65,7 +66,7 @@ AM_COND_IF([USE_CLANG],
 		-Wcast-align \
 		-Wno-override-init \
 		-Wunsafe-loop-optimizations \
-		-Wunused-but-set-variable"	
+		-Wunused-but-set-variable"
 	]
 )
 
@@ -697,7 +698,7 @@ AC_ARG_ENABLE([plugin-videocall],
               [AS_IF([test "x$enable_plugin_videocall" != "xyes"],
                      [enable_plugin_videocall=no])],
               [enable_plugin_videocall=yes])
-              
+
 AC_ARG_ENABLE([plugin-srtc],
               [AS_HELP_STRING([--disable-plugin-srtc],
                               [Disable srtc plugin])],
@@ -986,7 +987,7 @@ AM_COND_IF([ENABLE_PLUGIN_ECHOTEST],
 	[echo "    Echo Test:             no"])
 AM_COND_IF([ENABLE_PLUGIN_SRTC],
 	[echo "    srtc :             yes"],
-	[echo "    srtc :             no"])	
+	[echo "    srtc :             no"])
 AM_COND_IF([ENABLE_PLUGIN_STREAMING],
 	[echo "    Streaming:             yes"],
 	[echo "    Streaming:             no"])

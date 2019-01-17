@@ -589,8 +589,8 @@ janus_session *janus_session_create_srtc(guint64 session_id, char *username) {
 	g_atomic_int_set(&session->transport_gone, 0);
 	session->last_activity = janus_get_monotonic_time();
 	session->ice_handles = NULL;
-	if(session->username)
-		session->username = g_strdup(session->username);
+	if(username)
+		session->username = g_strdup(username);
 	janus_mutex_init(&session->mutex);
 	janus_mutex_lock(&sessions_mutex);
 	g_hash_table_insert(sessions, janus_uint64_dup(session->session_id), session);
@@ -614,7 +614,7 @@ janus_session *janus_session_find(guint64 session_id) {
 }
 janus_session *janus_session_find_by_username(gchar *username) {
 	janus_mutex_lock(&sessions_mutex);
-	janus_session *session = g_hash_table_lookup(name_sessions, &username);
+	janus_session *session = g_hash_table_lookup(name_sessions, username);
 	if(session != NULL) {
 		/* A successful find automatically increases the reference counter:
 		 * it's up to the caller to decrease it again when done */
@@ -1194,7 +1194,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
   char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 	JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
-	free(root_text);
 
 
 	/* Get transaction and message request */
@@ -1385,6 +1384,7 @@ Media_Server:
 	}
 
 srtcdone:
+	free(root_text);
 	/* Done processing */
 	if(handle != NULL)
 		janus_refcount_decrease(&handle->ref);

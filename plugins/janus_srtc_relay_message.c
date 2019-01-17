@@ -171,7 +171,7 @@ static srtc_relay_message_session_t* janus_srtc_relay_create_session(char *ipadd
 	session->i.context = relay_ctx->wsc;
 	session->i.ssl_connection = is_wss;
 	session->i.host = ipaddress;
-	session->i.origin = ipaddress;
+	session->i.address= ipaddress;
 	session->i.protocol = ws_protocols[0].name;
 	session->i.pwsi = &session->wsi;
 	session->i.userdata = session;
@@ -235,12 +235,12 @@ static int
 		}
 
 	}else if(signal_server){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
-		json_t *media_server = json_object_get(root, "media_server");
+		json_t *media_server = json_object_get(root, "media");
 		if(media_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
 		}
 	}
-	return srtc_handle_accept_next(handle, root, v);
+	return srtc_handle_call_next(handle, root, v);
 }
 static int
 	janus_srtc_relay_handle_accept(janus_plugin_session *handle, json_t *root, janus_message_accept_t *v)
@@ -274,7 +274,7 @@ static int
 	}else{//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
 
 	}
-	return srtc_handle_accept_next(handle, root, v);
+	return srtc_handle_hangup_next(handle, root, v);
 }
 
 static char *janus_websockets_get_interface_name(const char *ip) {

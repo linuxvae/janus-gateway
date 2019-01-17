@@ -292,6 +292,15 @@ void janus_srtc_create_session(janus_plugin_session *handle, int *error){
 		return;
 	}
 	janus_srtc_session_t *session = g_malloc0(sizeof(janus_srtc_session_t));
+	if(session == NULL){
+		JANUS_LOG(LOG_VERB,"session is null malloc failed");
+		exit(1);
+	}
+	session->mod_srtc_sessions = g_malloc(janus_max_srtc_module*sizeof(void*));
+	if(session->mod_srtc_sessions == NULL){
+		JANUS_LOG(LOG_VERB,"session is null malloc failed");
+		exit(1);
+	}
 	session->handle = handle;
 	handle->plugin_handle = session;
 	janus_refcount_init(&session->ref, janus_srtc_session_free);
