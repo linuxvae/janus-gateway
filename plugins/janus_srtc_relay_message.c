@@ -312,7 +312,7 @@ static int janus_srtc_relay_message_parse_config_file(srtc_relay_message_ctx_t *
 	//解析配置文件进行赋值
 	/* Read configuration */
 	char filename[255];
-	g_snprintf(filename, 255, "%s/%s.jcfg", config_path, "JANUS_RELAY_MESSAGE_PACKAGE");
+	g_snprintf(filename, 255, "%s/%s.jcfg", config_path, JANUS_RELAY_MESSAGE_PACKAGE);
 	JANUS_LOG(LOG_VERB, "Configuration file: %s\n", filename);
 	janus_config *config = janus_config_parse(filename);
 	if(config == NULL) {

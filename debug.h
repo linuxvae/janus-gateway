@@ -97,7 +97,7 @@ do { \
 			strftime(janus_log_ts, sizeof(janus_log_ts), \
 			         "[%a %b %e %T %Y] ", &janustmresult); \
 		} \
-		if (level == LOG_FATAL || level == LOG_ERR || level == LOG_DBG) { \
+	 if (1 || level == LOG_FATAL || level == LOG_ERR || level == LOG_DBG) { \
 			snprintf(janus_log_src, sizeof(janus_log_src), \
 			         "[%s:%s:%d] ", __FILE__, __FUNCTION__, __LINE__); \
 		} \

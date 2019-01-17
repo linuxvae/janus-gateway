@@ -197,12 +197,12 @@ static int janus_websockets_admin_callback_secure(
 		void *user, void *in, size_t len);
 /* Protocol mappings */
 static struct lws_protocols ws_protocols[] = {
-	{ "http-only", janus_websockets_callback_http, 0, 0 },
+//	{ "http-only", janus_websockets_callback_http, 0, 0 },
 	{ "janus-protocol", janus_websockets_callback, sizeof(janus_websockets_client), 0 },
 	{ NULL, NULL, 0 }
 };
 static struct lws_protocols sws_protocols[] = {
-	{ "http-only", janus_websockets_callback_https, 0, 0 },
+//	{ "http-only", janus_websockets_callback_https, 0, 0 },
 	{ "janus-protocol", janus_websockets_callback_secure, sizeof(janus_websockets_client), 0 },
 	{ NULL, NULL, 0 }
 };

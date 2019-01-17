@@ -1191,6 +1191,12 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
 	janus_session *session = NULL;
 	janus_ice_handle *handle = NULL;
+
+  char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+	JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
+	free(root_text);
+
+
 	/* Get transaction and message request */
 	JANUS_VALIDATE_JSON_OBJECT(root, incoming_request_srtc_parameters,
 		error_code, error_cause, FALSE,
