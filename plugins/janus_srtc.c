@@ -372,7 +372,7 @@ void janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 		return;
 	}
 
-	janus_videocall_hangup_media(handle);
+//janus_videocall_hangup_media(handle);
 	return;
 
 
