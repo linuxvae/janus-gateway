@@ -120,7 +120,7 @@ int janus_srtc_user_manage_handle_register(janus_plugin_session *handle, char *t
 	json_t *root = json_object_get(message, "srtc");
 	const gchar *root_text = json_string_value(root);
 	if(strcasecmp(root_text, "register")!= 0){
-		return srtc_handle_register_next(handle, transaction, message, jsep);
+		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}
 	json_t *username = json_object_get(message, "username");
 	const gchar *username_text = json_string_value(username);
