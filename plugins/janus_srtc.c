@@ -205,7 +205,7 @@ static void *janus_srtc_handler(void *data) {
 
 		}
 		else{
-
+			JANUS_LOG(LOG_ERR, "unkonw message %s...\n", message_text);
 		}//有待继续添加其他
 		/* All the requests to this plugin are handled asynchronously */
 error:
