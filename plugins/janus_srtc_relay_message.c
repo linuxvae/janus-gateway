@@ -210,9 +210,9 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	const gchar *message_text = json_string_value(message);
 
 
-		char *server_text = json_dumps(relay_server, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
-		JANUS_LOG(LOG_ERR, "root message %s\n", server_text);
-		free(server_text);
+	char *server_text = json_dumps(relay_server, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+	JANUS_LOG(LOG_WARN, "root message %s\n", server_text);
+	free(server_text);
 	janus_srtc_session_t* srtc_session = (janus_srtc_session_t*)handle->plugin_handle;
 	json_t *relay_server_ip = json_object_get(relay_server, "dst_ip");
 	const gchar *relay_server_ip_text = json_string_value(relay_server_ip);
@@ -226,6 +226,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	}
 	srtc_session->mod_srtc_sessions[srtc_rlay_msg_module.srtc_module_index] = session;
 	/* Convert to string and enqueue */
+	json_object_del(root, "relay");
 	char *payload = json_dumps(root, json_format);
 	g_async_queue_push(session->messages, payload);
 	lws_callback_on_writable(session->wsi);
