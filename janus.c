@@ -3408,16 +3408,16 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 			}
 		}
 	}
-	
+
 	/* Reference the payload, as the plugin may still need it and will do a decref itself */
 	json_incref(message);
 
 	json_t *srtc = json_object_get(message, "srtc");
 	if(srtc){
-		janus_session_notify_event(session, event);
-		goto R_OK;
+		janus_session_notify_event(session, message);
+		goto RSOK;
 	}
-	
+
 	/* Prepare JSON event */
 	json_t *event = janus_create_message("event", session->session_id, transaction);
 	json_object_set_new(event, "sender", json_integer(ice_handle->handle_id));
@@ -3434,7 +3434,7 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 	if((restart || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_RESEND_TRICKLES))
 			&& janus_ice_is_full_trickle_enabled()) {
 		/* We're restarting ICE, send our trickle candidates again */
-		janus_ice_resend_trickles(ice_handle);	
+		janus_ice_resend_trickles(ice_handle);
 	}
 
 	if(jsep != NULL && janus_events_is_enabled()) {
@@ -3444,7 +3444,7 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 		janus_events_notify_handlers(JANUS_EVENT_TYPE_JSEP,
 			session->session_id, ice_handle->handle_id, ice_handle->opaque_id, "local", merged_sdp_type, merged_sdp);
 	}
-R_OK:
+RSOK:
 	janus_refcount_decrease(&plugin_session->ref);
 	janus_refcount_decrease(&ice_handle->ref);
 	return JANUS_OK;
