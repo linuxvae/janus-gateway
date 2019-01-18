@@ -73,11 +73,13 @@ static int janus_client_websockets_callback(
 			JANUS_LOG(LOG_VERB, "[%d] WebSocket message  accepted\n", reason);
 		srtc_relay_message_session_t *relay_session = (srtc_relay_message_session_t*)lws_wsi_user(wsi);
 		switch(reason) {
-			case LWS_CALLBACK_ESTABLISHED: {
-				JANUS_LOG(LOG_VERB, "[%p] WebSocket connection accepted\n", wsi);
+			case LWS_CALLBACK_CLIENT_ESTABLISHED: {
+  			lws_callback_on_writable(wsi);
+				JANUS_LOG(LOG_VERB, "[%p] WebSocket connectted \n", wsi);
+				break;
 			}
 
-			case LWS_CALLBACK_SERVER_WRITEABLE: {
+			case LWS_CALLBACK_CLIENT_WRITEABLE: {
 				if(relay_session == NULL || relay_session->wsi == NULL){
 					JANUS_LOG(LOG_ERR, "[%p] Invalid WebSocket client instance...\n", wsi);
 					return -1;
@@ -129,6 +131,7 @@ static int janus_client_websockets_callback(
 					return 0;
 
 				}
+				break;
 			}
 			case LWS_CALLBACK_RECEIVE: {
 				JANUS_LOG(LOG_VERB, "[%p] WebSocket Got %zu bytes: \n", wsi, len);
@@ -180,6 +183,8 @@ static srtc_relay_message_session_t* janus_srtc_relay_create_session(char *ipadd
 	session->buflen = 0;
 	session->bufpending = 0;
 	session->bufoffset = 0;
+	session->initialized = 0;
+	session->stopping = 0;
 
 	session->messages = g_async_queue_new();
 	session->wsi = lws_client_connect_via_info(&session->i);
@@ -268,6 +273,7 @@ static int
 static int
 	janus_srtc_relay_handle_hangup(janus_plugin_session *handle, json_t *root, janus_message_hangup_t *v)
 {
+	//stoping =1 删session
 	if(v->relay){
 		if(signal_server){//找到callee 发送
 
