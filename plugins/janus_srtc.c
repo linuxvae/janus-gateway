@@ -309,7 +309,16 @@ int	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction,
 {
 	static janus_message_call_t  v;
 	//解析message 后生成V todo
-
+	json_t *username = json_object_get(message, "username");
+	v.caller_name = json_string_value(username);
+	json_t *relay = json_object_get(message, "relay");
+	json_t *body = json_object_get(message, "body");
+	v.jsep = json_object_get(body, "jseep");
+	json_t *callee_name = json_object_get(body, "calleename")
+	v.callee_name = json_string_value(callee_name);
+	if(relay != NULL){
+		v.relay = true;
+	}
 	return srtc_handle_call( handle, message, &v);
 }
 int janus_srtc_handle_accept_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
@@ -323,7 +332,7 @@ int janus_srtc_handle_hangup_init(janus_plugin_session *handle, char *transactio
 {
 	static janus_message_hangup_t  v;
 	//解析message 后生成V todo
-
+	
 	return srtc_handle_hangup( handle, message, &v);
 }
 
