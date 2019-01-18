@@ -505,9 +505,9 @@ int janus_srtc_user_manage_handle_relay(janus_plugin_session *handle, char *tran
 	if(session == NULL){
 		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}
-	if(handle->srtc_type = SERVER_A||handle->srtc_type = SERVER_C){
+	if(handle->srtc_type == SERVER_A||handle->srtc_type == SERVER_C){
 		//处理trickle
-		char *payload = json_dumps(root, json_format);
+		char *payload = json_dumps(message, json_format);
 		JANUS_LOG(LOG_WARN, "relay_message %s\n", payload);
 		g_async_queue_push(session->messages, payload);
 		lws_callback_on_writable(session->wsi);
@@ -528,8 +528,8 @@ void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *
 	srtc_handle_call = janus_srtc_relay_handle_call;
 
 	srtc_handle_message_next = srtc_handle_message;
-	srtc_handle_message = janus_srtc_user_manage_handle_register;
-	
+	srtc_handle_message = janus_srtc_user_manage_handle_relay;
+
 	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));
 	if(relay_ctx == 0){
 		if(relay_ctx == NULL){
