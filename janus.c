@@ -3414,6 +3414,7 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 
 	json_t *srtc = json_object_get(message, "srtc");
 	if(srtc){
+		json_object_set_new(message, "session_id", json_string(session->session_id));
 		janus_session_notify_event(session, message);
 		goto RSOK;
 	}
