@@ -535,6 +535,7 @@ void* janus_srtc_video_call_create_plugin(janus_callbacks *callback, const char 
 	srtc_incoming_data = janus_srtc_video_call_incoming_data;
 	srtc_video_call_ctx_t *ctx =(srtc_video_call_ctx_t*)g_malloc(sizeof(srtc_video_call_ctx_t));
 	memset(ctx, 0,sizeof(srtc_video_call_ctx_t));
+	ctx->gateway = callback;
 	ctx->sessions = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)janus_srtc_videocall_session_destroy);
 	return ctx;
 }
