@@ -107,10 +107,11 @@ janus_plugin janus_srtc_plugin =
 
 extern  srtc_module_t srtc_rlay_msg_module;
 extern  srtc_module_t srtc_user_manage_module;
+extern  srtc_module_t srtc_video_call_module;
 
 srtc_module_t srtc_core_module;
 
-srtc_module_t* srtc_modules[]={&srtc_core_module, &srtc_rlay_msg_module, &srtc_user_manage_module};//简单的方法加载各个模块
+srtc_module_t* srtc_modules[]={&srtc_core_module, &srtc_video_call_module, &srtc_rlay_msg_module, &srtc_user_manage_module};//简单的方法加载各个模块
 int janus_max_srtc_module = sizeof(srtc_modules)/sizeof(srtc_module_t*);
 
 janus_plugin *create(void){

@@ -1211,11 +1211,11 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
 	json_t *username = json_object_get(root, "username");
 	const gchar *username_text = json_string_value(username);
-	
+
 	json_t *media = json_object_get(root, "media");
 	if(media== NULL || !signal_server){//call 需要区查找callee的name ssesion
 		session = janus_session_find_by_username(username_text);
-	}	
+	}
 
 	//create handle
 	const gchar *plugin_text = "janus.plugin.srtc";
@@ -1285,7 +1285,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			server_type = SERVER_C;
 			json_t *body = json_object_get(root, "body");
 			/* Is there an SDP attached? */
-			json_t *calleeusername = json_object_get(body, "calleeusername");
+			json_t *calleeusername = json_object_get(body, "calleename");
 			const gchar *calleeusername_text = json_string_value(calleeusername);
 			session = janus_session_find_by_username(calleeusername_text);
 			if(session == NULL){
