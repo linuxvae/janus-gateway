@@ -3282,7 +3282,9 @@ static void *janus_transport_requests(void *data) {
 			json_t *message = json_object_get(request->message, "janus");
 			json_t *srtc = json_object_get(request->message, "srtc");
 			const gchar *message_text = json_string_value(message);
-			if((message_text && !strcasecmp(message_text, "message")) || (srtc)) {
+			if(srtc && (!strcasecmp(message_text, "call")||!strcasecmp(message_text, "accept"))){//需要同步进行call accept 防止session没建立起来
+				janus_process_incoming_request(request);
+			}else if((message_text && !strcasecmp(message_text, "message")) || (srtc)) {
 				/* Spawn a task thread */
 				GError *tperror = NULL;
 				g_thread_pool_push(tasks, request, &tperror);
