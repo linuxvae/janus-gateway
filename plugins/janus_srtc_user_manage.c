@@ -61,7 +61,7 @@ static int
 		char *relay_ip = "47.75.158.180";
 		int relay_port = 8188;
 		char *media_ip = "47.75.213.83";
-		int *media_port = 8188;
+		int media_port = 8188;
 
 		relay = json_object();
 		json_t *media = json_object();
@@ -71,6 +71,10 @@ static int
 		json_object_set_new(media, "dst_ip", json_string(media_ip));
 		json_object_set_new(message, "relay", relay);
 		json_object_set_new(message, "media", media);
+
+		char *message_text = json_dumps(message, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+		JANUS_LOG(LOG_ERR, "root message %s\n", message_text);
+		free(message_text);
 	}
 
 	return srtc_handle_call_next(handle, message, v);
@@ -87,11 +91,11 @@ static int
 		//找到一个合适的mediaserver
 		//IP: find_media_server_by_caller(callername_text)
 		char *media_ip = "47.75.213.83";
-		int *media_port = 8188;
+		int media_port = 8188;
 
 		json_t *media = json_object();
-		json_object_set_new(media, "media_port", json_integer(media_port));
-		json_object_set_new(media, "media_ip", json_string(media_ip));
+		json_object_set_new(media, "dst_port", json_integer(media_port));
+		json_object_set_new(media, "dst_ip", json_string(media_ip));
 		json_object_set_new(message, "media", media);
 	}
 

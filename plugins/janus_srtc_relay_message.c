@@ -70,9 +70,9 @@ static int janus_client_websockets_callback(
 		enum lws_callback_reasons reason,
 		void *user, void *in, size_t len){
 
+			JANUS_LOG(LOG_VERB, "[%d] WebSocket message  accepted\n", reason);
 		srtc_relay_message_session_t *relay_session = (srtc_relay_message_session_t*)lws_wsi_user(wsi);
 		switch(reason) {
-
 			case LWS_CALLBACK_ESTABLISHED: {
 				JANUS_LOG(LOG_VERB, "[%p] WebSocket connection accepted\n", wsi);
 			}
@@ -201,13 +201,17 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	json_t *message = json_object_get(root, "srtc");
 	const gchar *message_text = json_string_value(message);
 
+
+		char *server_text = json_dumps(relay_server, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+		JANUS_LOG(LOG_ERR, "root message %s\n", server_text);
+		free(server_text);
 	janus_srtc_session_t* srtc_session = (janus_srtc_session_t*)handle->plugin_handle;
 	json_t *relay_server_ip = json_object_get(relay_server, "dst_ip");
 	const gchar *relay_server_ip_text = json_string_value(relay_server_ip);
 	json_t *relay_server_port = json_object_get(relay_server, "dst_port");
-	const gchar *relay_server_port_text = json_string_value(relay_server_port);
+	int relay_server_port_text = json_integer_value(relay_server_port);
 
-	session = janus_srtc_relay_create_session(relay_server_ip_text, relay_server_port_text, 1);
+	session = janus_srtc_relay_create_session(relay_server_ip_text, relay_server_port_text, 0);
 	if(session == NULL){
 		JANUS_LOG(LOG_ERR, "ctx janus_srtc_relay_create_csession create failed!\n");
 		return -1;
