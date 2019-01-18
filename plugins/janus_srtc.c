@@ -13,11 +13,8 @@
 srtc_handle_call_pt          srtc_handle_call;
 srtc_handle_accept_pt          srtc_handle_accept;
 srtc_handle_hangup_pt          srtc_handle_hangup;
-srtc_handle_register_pt 		srtc_handle_register;
-
-
-
 srtc_handle_message_pt          srtc_handle_message;
+
 srtc_create_session_pt       srtc_create_session;
 srtc_incoming_rtp_pt    srtc_incoming_rtp;
 srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
@@ -198,15 +195,15 @@ static void *janus_srtc_handler(void *data) {
 		if(!strcasecmp(message_text, "call")){
 			janus_srtc_handle_call_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "accept")){
-
+			janus_srtc_handle_accept_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "hangup")){
+			janus_srtc_handle_hangup_init(handle, transaction, root, jsep);
 
-		}else if(!strcasecmp(message_text, "register")){
-
-		}
-		else{
+		}else{//register or tricle
 			JANUS_LOG(LOG_ERR, "unkonw message %s...\n", message_text);
-		}//有待继续添加其他
+			srtc_handle_message(handle, transaction, root, jsep);
+		}
+
 		/* All the requests to this plugin are handled asynchronously */
 error:
 		continue;
@@ -308,14 +305,28 @@ void janus_srtc_create_session(janus_plugin_session *handle, int *error){
 
 
 }
-int
-	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
+int	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
 	static janus_message_call_t  v;
 	//解析message 后生成V todo
 
 	return srtc_handle_call( handle, message, &v);
 }
+int janus_srtc_handle_accept_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
+{
+	static janus_message_accept_t  v;
+	//解析message 后生成V todo
+
+	return srtc_handle_accept( handle, message, &v);
+}
+int janus_srtc_handle_hangup_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
+{
+	static janus_message_hangup_t  v;
+	//解析message 后生成V todo
+
+	return srtc_handle_hangup( handle, message, &v);
+}
+
 
 struct janus_plugin_result *
 	janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
@@ -418,7 +429,7 @@ static int janus_srtc_core_incoming_rtcp(janus_plugin_session *handle, int video
 	return 0;
 
 }
-int janus_srtc_core_register(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
+int janus_srtc_core_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
 	return 0;
 }
 
@@ -428,7 +439,7 @@ void* janus_srtc_core_create_plugin(janus_callbacks *callback, const char *confi
 	srtc_handle_hangup = janus_srtc_core_handle_hangup;
 	srtc_incoming_rtp = janus_srtc_core_incoming_rtp;
 	srtc_incoming_rtcp = janus_srtc_core_incoming_rtcp;
-	srtc_handle_register = janus_srtc_core_register;
+	srtc_handle_message = janus_srtc_core_message;
 	srtc_core_ctx_t *ctx =(srtc_core_ctx_t*)g_malloc(sizeof(srtc_core_ctx_t));
 	return ctx;
 }

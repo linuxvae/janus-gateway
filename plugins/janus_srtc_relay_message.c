@@ -14,6 +14,9 @@
 static srtc_handle_call_pt          srtc_handle_call_next;
 static srtc_handle_accept_pt          srtc_handle_accept_next;
 static srtc_handle_hangup_pt          srtc_handle_hangup_next;
+static srtc_handle_message_pt          srtc_handle_message_next;
+
+
 
 extern gboolean signal_server;
 /* JSON serialization options */
@@ -235,12 +238,14 @@ static int
 {
 	if(v->relay){
 		if(signal_server){//信令服务器处理relay的call 直接通过handle中的session sendmessage 发给B
+			handle->srtc_type = SERVER_C;
 			//do nothing
 		}else{//创建session and创建websocket 发送relay成功后destroy/只作为暂时的发送作用
 			json_t *signal_server = json_object_get(root, "relay");
 			if(signal_server){
 				create_session_and_relay(handle,v->transaction, root, signal_server);
 			}
+			handle->srtc_type = SERVER_B;
 		}
 
 	}else if(signal_server){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
@@ -248,6 +253,7 @@ static int
 		if(media_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
 		}
+		handle->srtc_type = SERVER_A;
 	}
 	return srtc_handle_call_next(handle, root, v);
 }
@@ -256,9 +262,9 @@ static int
 {
 	if(v->relay){
 		if(signal_server){//找到callee 发送,由其
-
+			handle->srtc_type = SERVER_A;
 		}else{//不做什么，由videocall模块去处理accept，他会把acctpt发送给session caller
-
+			handle->srtc_type = SERVER_B;
 		}
 
 	}else if(signal_server){//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
@@ -266,6 +272,7 @@ static int
 		if(signal_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
 		}
+		handle->srtc_type = SERVER_C;
 	}
 	return srtc_handle_accept_next(handle, root, v);
 }
@@ -493,6 +500,20 @@ void *janus_relay_websockets_thread(void *data) {
 	JANUS_LOG(LOG_INFO, "WebSockets thread ended\n");
 	return NULL;
 }
+int janus_srtc_user_manage_handle_relay(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
+	srtc_relay_message_session_t *session = srtc_get_module_session(handle, srtc_rlay_msg_module);
+	if(session == NULL){
+		return srtc_handle_message_next(handle, transaction, message, jsep);
+	}
+	if(handle->srtc_type = SERVER_A||handle->srtc_type = SERVER_C){
+		//处理trickle
+		char *payload = json_dumps(root, json_format);
+		JANUS_LOG(LOG_WARN, "relay_message %s\n", payload);
+		g_async_queue_push(session->messages, payload);
+		lws_callback_on_writable(session->wsi);
+	}
+	return srtc_handle_message_next(handle, transaction, message, jsep);
+}
 
 
 void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *config_path){
@@ -506,7 +527,9 @@ void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *
 	srtc_handle_call_next = srtc_handle_call;
 	srtc_handle_call = janus_srtc_relay_handle_call;
 
-
+	srtc_handle_message_next = srtc_handle_message;
+	srtc_handle_message = janus_srtc_user_manage_handle_register;
+	
 	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));
 	if(relay_ctx == 0){
 		if(relay_ctx == NULL){

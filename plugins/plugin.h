@@ -223,9 +223,9 @@ typedef struct janus_plugin_result janus_plugin_result;
 typedef struct json_t json_t;
 
 
-#define SERVER_A 0 //signal server caller
-#define SERVER_B 1 //media server
-#define SERVER_C 2 //signal server callee
+#define SERVER_A 1 //signal server caller
+#define SERVER_B 2 //media server
+#define SERVER_C 3 //signal server callee
 
 /*! \brief Plugin-Gateway session mapping */
 struct janus_plugin_session {

@@ -4,14 +4,13 @@
 void* janus_srtc_user_manage_create_plugin(janus_callbacks *callback, const char *config_path);
 int janus_srtc_user_manage_destory_plugin(void *ctx_);
 
-srtc_handle_call_pt          srtc_handle_call_next;
-srtc_handle_accept_pt          srtc_handle_accept_next;
-srtc_handle_hangup_pt          srtc_handle_hangup_next;
-srtc_incoming_rtp_pt          srtc_incoming_rtp_next;
-srtc_incoming_rtcp_pt          srtc_incoming_rtcp_next;
-srtc_incoming_data_pt          srtc_incoming_data_next;
-srtc_handle_register_pt          srtc_handle_register_next;
-
+static srtc_handle_call_pt          srtc_handle_call_next;
+static srtc_handle_accept_pt          srtc_handle_accept_next;
+static srtc_handle_hangup_pt          srtc_handle_hangup_next;
+static srtc_incoming_rtp_pt          srtc_incoming_rtp_next;
+static srtc_incoming_rtcp_pt          srtc_incoming_rtcp_next;
+static srtc_incoming_data_pt          srtc_incoming_data_next;
+static srtc_handle_message_pt          srtc_handle_message_next;
 
 
 extern gboolean signal_server;
@@ -138,8 +137,8 @@ void* janus_srtc_user_manage_create_plugin(janus_callbacks *callback, const char
 	srtc_handle_accept = janus_srtc_user_manage_handle_accept;
 	srtc_handle_hangup_next = srtc_handle_hangup;
 	srtc_handle_hangup = janus_srtc_user_manage_handle_hangup;
-	srtc_handle_register_next = srtc_handle_register;
-	srtc_handle_register = janus_srtc_user_manage_handle_register;
+	srtc_handle_message_next = srtc_handle_message;
+	srtc_handle_message = janus_srtc_user_manage_handle_register;
 	srtc_user_manage_ctx_t *ctx =(srtc_user_manage_ctx_t*)g_malloc(sizeof(srtc_user_manage_ctx_t));
 	memset(ctx, 0,sizeof(srtc_user_manage_ctx_t));
 	return ctx;
