@@ -226,7 +226,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	}
 	srtc_session->mod_srtc_sessions[srtc_rlay_msg_module.srtc_module_index] = session;
 	/* Convert to string and enqueue */
-	json_object_del(root, "relay");
+	//json_object_del(root, "relay");
 	char *payload = json_dumps(root, json_format);
 	g_async_queue_push(session->messages, payload);
 	lws_callback_on_writable(session->wsi);
@@ -242,9 +242,9 @@ static int
 			handle->srtc_type = SERVER_C;
 			//do nothing
 		}else{//创建session and创建websocket 发送relay成功后destroy/只作为暂时的发送作用
-			json_t *signal_server = json_object_get(root, "relay");
-			if(signal_server){
-				create_session_and_relay(handle,v->transaction, root, signal_server);
+			json_t *relay_server = json_object_get(root, "relay");
+			if(relay_server){
+				create_session_and_relay(handle,v->transaction, root, relay_server);
 			}
 			handle->srtc_type = SERVER_B;
 		}
