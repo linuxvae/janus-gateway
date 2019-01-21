@@ -100,7 +100,7 @@ static int
 	}else if(handle->srtc_type == SERVER_C){
 		JANUS_LOG(LOG_ERR, "handle->srtc_type is SERVER_C something is error \n", v->caller_name);
 		return srtc_handle_call_next(handle, message, v);
-	}		
+	}
 
 	janus_mutex_lock(&ctx->sessions_mutex);
 	if(g_hash_table_lookup(ctx->sessions, v->caller_name) != NULL) {
@@ -332,8 +332,8 @@ static int
 	json_object_set_new(message, "srtc", "event");
 	json_object_set_new(message, "eventtype", "hangup");
 	//重组message 形成accept 的answer todo
-	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
-	
+	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
+
 	/* Check if we still need to remove any reference */
 	if(peer && g_atomic_int_compare_and_exchange(&peer->incall, 1, 0)) {
 		janus_refcount_decrease(&session->ref);
@@ -341,14 +341,14 @@ static int
 	if(g_atomic_int_compare_and_exchange(&session->incall, 1, 0) && peer) {
 		janus_refcount_decrease(&peer->ref);
 	}
-	
+
 	//具体关闭流程有待完善
 
 	ctx->gateway->close_pc(session->handle);
 
 	ctx->gateway->close_pc(peer->handle);
 
-	
+
 
 	return srtc_handle_call_next(handle, message, v);
 }
@@ -545,18 +545,18 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 	}
 	json_t *root = json_object_get(message, "srtc");
 	const gchar *root_text = json_string_value(root);
-	if(signal_server){		
+	if(signal_server){
 		if(strcasecmp(root_text, "event")!= 0){
 			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
-		int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, NULL);		
+		int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, NULL);
 	}else{ //media server
 		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
 		janus_srtc_videocall_session *peer = session->peer;
 		if(peer == NULL) {
 			JANUS_LOG(LOG_WARN, "No call to hangup\n");
 			return srtc_handle_message_next(handle, transaction, message, jsep);
-		} 
+		}
 		if(!strcasecmp(root_text, "trickle")!= 0 || !strcasecmp(root_text, "refuse")!= 0){
 			json_object_set_new(message, "srtc", "event");
 			json_object_set_new(message, "eventtype", root_text);

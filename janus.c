@@ -1166,7 +1166,7 @@ int janus_process_incoming_request(janus_request *request) {
 		return ret;
 	}
 	json_t *root = request->message;
-	
+
 	if(json_object_get(root, "srtc")){
 		return janus_process_incoming_request_srtc(request);
 	}else{
@@ -1337,7 +1337,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			ret = janus_process_success(request, reply);
 			/* Notify event handlers as well */
 			if(janus_events_is_enabled())
-				janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);			
+				janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);
 		}else{//call,relay call
 			json_incref(root);
 			janus_plugin_result *result = plugin_t->handle_message(handle->app_handle,
@@ -3292,10 +3292,10 @@ static void *janus_transport_requests(void *data) {
 			/* Process the request synchronously only it's not a message for a plugin */
 			json_t *message = json_object_get(request->message, "janus");
 			json_t *srtc = json_object_get(request->message, "srtc");
-		
+
 			const gchar *message_text = json_string_value(message);
 			const gchar *srtc_text = json_string_value(srtc);
-			if(srtc && (!strcasecmp(srtc_text, "call") ||!strcasecmp(srtc_text, "event") 
+			if(srtc && (!strcasecmp(srtc_text, "call") ||!strcasecmp(srtc_text, "event")
 				|| !strcasecmp(srtc_text, "call")||!strcasecmp(srtc_text, "accept"))){//需要同步进行call accept 防止session没建立起来
 				janus_process_incoming_request(request);
 			}else if((message_text && !strcasecmp(message_text, "message")) || (srtc)) {
@@ -3421,16 +3421,9 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 
 	json_t *srtc = json_object_get(message, "srtc");
 	if(srtc){
-<<<<<<< HEAD
-		
-		json_object_set_new(message, "session_id", session->session_id);
-		janus_session_notify_event(session, message);
-		goto R_OK;
-=======
 		json_object_set_new(message, "session_id", json_integer(session->session_id));
 		janus_session_notify_event(session, message);
 		goto RSOK;
->>>>>>> aecd57b91cde80be102a7900186635d78693917c
 	}
 
 	/* Prepare JSON event */
