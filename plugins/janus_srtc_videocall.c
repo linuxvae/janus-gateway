@@ -288,8 +288,8 @@ static int
 	janus_sdp_destroy(answer);
 
 	/* Send SDP to our peer */
-	json_object_set_new(message, "srtc", json_string("event"));
 	json_object_set_new(message, "eventtype", json_string("accept"));
+	json_object_set_new(message, "srtc", json_string("event"));	
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
 
@@ -329,8 +329,8 @@ static int
 	}
 
 	/* Send SDP to our peer */
-	json_object_set_new(message, "srtc", json_string("event"));
 	json_object_set_new(message, "eventtype", json_string("hangup"));
+	json_object_set_new(message, "srtc", json_string("event"));	
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
 
@@ -558,8 +558,8 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
 		if(!strcasecmp(root_text, "trickle")!= 0 || !strcasecmp(root_text, "refuse")!= 0){
-			json_object_set_new(message, "srtc", json_string("event"));
 			json_object_set_new(message, "eventtype", json_string(root_text));
+			json_object_set_new(message, "srtc", json_string("event"));			
 		}
 		int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
 	}

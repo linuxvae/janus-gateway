@@ -241,9 +241,9 @@ static int
 	const gchar *message_text = json_string_value(message);
 	if(handle->srtc_type == SERVER_B){
 		json_t *relay_server = json_object_get(root, "relay");
-		
-		json_object_set_new(root, "srtc", json_string("event"));
 		json_object_set_new(root, "eventtype", json_string(message_text));
+		json_object_set_new(root, "srtc", json_string("event"));
+		
 		if(relay_server){
 			create_session_and_relay(handle,v->transaction, root, relay_server);
 		}
