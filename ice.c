@@ -1126,6 +1126,7 @@ gint janus_ice_handle_attach_plugin(void *core_session, janus_ice_handle *handle
 	janus_refcount_increase(&handle->ref);
 	handle->app = plugin;
 	handle->app_handle = session_handle;
+	handle->app_handle->srtc_type = -1;
 	/* Add this plugin session to active sessions map */
 	janus_mutex_lock(&plugin_sessions_mutex);
 	g_hash_table_insert(plugin_sessions, session_handle, session_handle);
