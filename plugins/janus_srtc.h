@@ -86,6 +86,7 @@ typedef	int (* srtc_handle_accept_pt)( janus_plugin_session *handle, json_t *mes
 typedef struct {
 	//有待完善
 	char *reason;//挂断原因
+	char *username;//挂断原因
 	int  relay; //是否转发到其他服务器
 	char *transaction;
 } janus_message_hangup_t;

@@ -142,6 +142,7 @@ static int janus_client_websockets_callback(
 					//if OK:
 					//结束session
 				}
+				
 
 				return 0;
 			}
@@ -257,19 +258,11 @@ static int
 static int
 	janus_srtc_relay_handle_accept(janus_plugin_session *handle, json_t *root, janus_message_accept_t *v)
 {
-	if(v->relay){
-		if(signal_server){//找到callee 发送,由其
-			handle->srtc_type = SERVER_A;
-		}else{//不做什么，由videocall模块去处理accept，他会把acctpt发送给session caller
-			handle->srtc_type = SERVER_B;
-		}
-
-	}else if(signal_server){//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
+	if(handle->srtc_type == SERVER_C){//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
 		json_t *media_server = json_object_get(root, "media_server");
 		if(signal_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
 		}
-		handle->srtc_type = SERVER_C;
 	}
 	return srtc_handle_accept_next(handle, root, v);
 }
@@ -277,17 +270,16 @@ static int
 static int
 	janus_srtc_relay_handle_hangup(janus_plugin_session *handle, json_t *root, janus_message_hangup_t *v)
 {
-	//stoping =1 删session
-	if(v->relay){
-		if(signal_server){//找到callee 发送
-
-		}else{//不做什么，由videocall模块去处理accept，他会把acctpt发送给session caller
-
-		}
-
-	}else{//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
-
+	srtc_relay_message_session_t *session = srtc_get_module_session(handle, srtc_rlay_msg_module);
+	if(session == NULL){
+		return srtc_handle_hangup_next(handle, root, v);
 	}
+	//stoping =1 删session
+	if(signal_server){//A/C通过websicket 发送
+		char *payload = json_dumps(root, json_format);
+		g_async_queue_push(session->messages, payload);
+		lws_callback_on_writable(session->wsi);
+	}	
 	return srtc_handle_hangup_next(handle, root, v);
 }
 

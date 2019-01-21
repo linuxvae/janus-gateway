@@ -13,6 +13,8 @@ srtc_handle_hangup_pt          srtc_handle_hangup_next;
 srtc_incoming_rtp_pt          srtc_incoming_rtp_next;
 srtc_incoming_rtcp_pt          srtc_incoming_rtcp_next;
 srtc_incoming_data_pt          srtc_incoming_data_next;
+static srtc_handle_message_pt          srtc_handle_message_next;
+
 
 
 extern gboolean signal_server;
@@ -85,7 +87,9 @@ static int
 {
 	int error_code = 0;
 	char error_cause[512];
-
+	if(signal_server){
+		return srtc_handle_call_next(handle, message, v);
+	}
 	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
 	if(ctx == NULL){
 		return srtc_handle_call_next(handle, message, v);
@@ -284,6 +288,8 @@ static int
 	janus_sdp_destroy(answer);
 
 	/* Send SDP to our peer */
+	json_object_set_new(message, "srtc", "event");
+	json_object_set_new(message, "eventtype", "accept");
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
 
@@ -322,6 +328,12 @@ static int
 		JANUS_LOG(LOG_VERB, "%s is hanging up the call with %s (%s)\n", session->username, peer->username, hangup_text);
 	}
 
+	/* Send SDP to our peer */
+	json_object_set_new(message, "srtc", "event");
+	json_object_set_new(message, "eventtype", "hangup");
+	//重组message 形成accept 的answer todo
+	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
+	
 	/* Check if we still need to remove any reference */
 	if(peer && g_atomic_int_compare_and_exchange(&peer->incall, 1, 0)) {
 		janus_refcount_decrease(&session->ref);
@@ -329,12 +341,14 @@ static int
 	if(g_atomic_int_compare_and_exchange(&session->incall, 1, 0) && peer) {
 		janus_refcount_decrease(&peer->ref);
 	}
-
+	
 	//具体关闭流程有待完善
 
 	ctx->gateway->close_pc(session->handle);
 
 	ctx->gateway->close_pc(peer->handle);
+
+	
 
 	return srtc_handle_call_next(handle, message, v);
 }
@@ -522,20 +536,34 @@ int janus_srtc_video_call_destory_plugin(void *ctx_){
 	//删除所有的session
 }
 
-int janus_srtc_video_call_handle_register(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
+int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
 	//1、判断appkey的合法性
 	//2、存储username 和当前服务器的外网IP
-	json_t *root = json_object_get(message, "srtc");
-	const gchar *root_text = json_string_value(root);
-	if(strcasecmp(root_text, "register")!= 0){
+	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
+	if(ctx == NULL){
 		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}
-	json_t *username = json_object_get(message, "username");
-	const gchar *username_text = json_string_value(username);
-	char *public_ip = janus_get_public_ip();
-	//存储
-
-	return 0;
+	json_t *root = json_object_get(message, "srtc");
+	const gchar *root_text = json_string_value(root);
+	if(signal_server){		
+		if(strcasecmp(root_text, "event")!= 0){
+			return srtc_handle_message_next(handle, transaction, message, jsep);
+		}
+		int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, NULL);		
+	}else{ //media server
+		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
+		janus_srtc_videocall_session *peer = session->peer;
+		if(peer == NULL) {
+			JANUS_LOG(LOG_WARN, "No call to hangup\n");
+			return srtc_handle_message_next(handle, transaction, message, jsep);
+		} 
+		if(!strcasecmp(root_text, "trickle")!= 0 || !strcasecmp(root_text, "refuse")!= 0){
+			json_object_set_new(message, "srtc", "event");
+			json_object_set_new(message, "eventtype", root_text);
+		}
+		int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
+	}
+	return srtc_handle_message_next(handle, transaction, message, jsep);
 }
 
 void* janus_srtc_video_call_create_plugin(janus_callbacks *callback, const char *config_path){
@@ -551,6 +579,8 @@ void* janus_srtc_video_call_create_plugin(janus_callbacks *callback, const char 
 	srtc_incoming_rtcp = janus_srtc_video_call_incoming_rtcp;
 	srtc_incoming_data_next = srtc_incoming_data;
 	srtc_incoming_data = janus_srtc_video_call_incoming_data;
+	srtc_handle_message_next = srtc_handle_message;
+	srtc_handle_message = janus_srtc_video_call_handle_message;
 	srtc_video_call_ctx_t *ctx =(srtc_video_call_ctx_t*)g_malloc(sizeof(srtc_video_call_ctx_t));
 	memset(ctx, 0,sizeof(srtc_video_call_ctx_t));
 	ctx->gateway = callback;

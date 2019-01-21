@@ -1194,7 +1194,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	janus_ice_handle *handle = NULL;
 	int server_type = -1;
 
-	 char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+	char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 	JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
 
 
@@ -1233,7 +1233,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		}
 	}else if(!strcasecmp(message_text, "call") && signal_server){
 		server_type = SERVER_A;
-	}else{
+	}else if(!signal_server){
 		server_type = SERVER_B;
 	}
 	if(handle->app_handle->srtc_type == -1){
