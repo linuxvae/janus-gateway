@@ -1299,9 +1299,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	}
 
 
-	if(handle->app_handle->srtc_type == -1){
-		handle->app_handle->srtc_type = server_type;
-	}
 	session_id = session->session_id;
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
@@ -1313,6 +1310,9 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		goto srtcdone;
 	}
 
+	if(handle->app_handle->srtc_type == -1){
+		handle->app_handle->srtc_type = server_type;
+	}
 	if(signal_server == TRUE){
 		if(!strcasecmp(message_text, "unregister")){
 			if(handle != NULL) {
