@@ -545,19 +545,24 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 	}
 	json_t *root = json_object_get(message, "srtc");
 	const gchar *root_text = json_string_value(root);
-	if(signal_server){
-		if(strcasecmp(root_text, "event")!= 0){
-			return srtc_handle_message_next(handle, transaction, message, jsep);
+	if(handle->srtc_type == SERVER_A || handle->srtc_type == SERVER_C){		
+		if(!strcasecmp(root_text, "event")){
+			int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, NULL);
 		}
-		int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, NULL);
-	}else{ //media server
+	}	
+	if(handle->srtc_type == SERVER_A){		
+		return srtc_handle_message_next(handle, transaction, message, jsep);		
+	}else if(handle->srtc_type == SERVER_B){
+		return srtc_handle_message_next(handle, transaction, message, jsep);
+	}
+	else{ //media server
 		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
 		janus_srtc_videocall_session *peer = session->peer;
 		if(peer == NULL) {
 			JANUS_LOG(LOG_WARN, "No call to hangup\n");
 			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
-		if(!strcasecmp(root_text, "trickle")!= 0 || !strcasecmp(root_text, "refuse")!= 0){
+		if(!strcasecmp(root_text, "trickle")|| !strcasecmp(root_text, "refuse")){
 			json_object_set_new(message, "eventtype", json_string(root_text));
 			json_object_set_new(message, "srtc", json_string("event"));			
 		}

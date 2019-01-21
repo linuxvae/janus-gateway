@@ -495,14 +495,23 @@ int janus_srtc_relay_handle_relay(janus_plugin_session *handle, char *transactio
 	if(session == NULL){
 		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}
-	if(handle->srtc_type == SERVER_A||handle->srtc_type == SERVER_C){
-		json_t *root = json_object_get(message, "srtc");
-		const gchar *root_text = json_string_value(root);
-		if(strcasecmp(root_text, "event")!= 0){
+	json_t *root = json_object_get(message, "srtc");
+	const gchar *root_text = json_string_value(root);
+	if(handle->srtc_type == SERVER_A || handle->srtc_type == SERVER_C){		
+		if(!strcasecmp(root_text, "event")){
 			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
 	}
+	if(handle->srtc_type == SERVER_A){
+		if(!strcasecmp(root_text, "trickle")){
+			char *payload = json_dumps(message, json_format);
+			JANUS_LOG(LOG_WARN, "relay_message %s\n", payload);
+			g_async_queue_push(session->messages, payload);
+			lws_callback_on_writable(session->wsi);
+		}
+	}
 	//其他信息转发 需要设定条件
+	
 	//if(handle->srtc_type == SERVER_A||handle->srtc_type == SERVER_C){
 	//	//处理trickle
 	//	char *payload = json_dumps(message, json_format);
