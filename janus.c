@@ -1236,9 +1236,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	}else if(!signal_server){
 		server_type = SERVER_B;
 	}
-	if(handle->app_handle->srtc_type == -1){
-		handle->app_handle->srtc_type = server_type;
-	}
 	if(session == NULL){
 		session = janus_session_find_by_username(username_text);
 	}
@@ -1302,6 +1299,9 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	}
 
 
+	if(handle->app_handle->srtc_type == -1){
+		handle->app_handle->srtc_type = server_type;
+	}
 	session_id = session->session_id;
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
