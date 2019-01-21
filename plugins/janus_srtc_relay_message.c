@@ -238,7 +238,7 @@ static int
 {
 	json_t *message = json_object_get(root, "srtc");
 	const gchar *message_text = json_string_value(message);
-	if(handle->srtc_type = SERVER_B){
+	if(handle->srtc_type == SERVER_B){
 		json_t *relay_server = json_object_get(root, "relay");
 		
 		json_object_set_new(root, "srtc", "event");
@@ -246,8 +246,8 @@ static int
 		if(relay_server){
 			create_session_and_relay(handle,v->transaction, root, relay_server);
 		}
-		handle->srtc_type = SERVER_B;
-	}else if(handle->srtc_type = SERVER_A){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
+		handle->srtc_type == SERVER_B;
+	}else if(handle->srtc_type == SERVER_A){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
 		json_t *media_server = json_object_get(root, "media");
 		if(media_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
