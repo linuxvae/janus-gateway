@@ -900,6 +900,7 @@ int janus_websockets_send_message(janus_transport_session *transport, void *requ
 	}
 	/* Convert to string and enqueue */
 	char *payload = json_dumps(message, json_format);
+	JANUS_LOG(LOG_INFO, "*******WebSockets send message %s\n", payload);
 	g_async_queue_push(client->messages, payload);
 	lws_callback_on_writable(client->wsi);
 	janus_mutex_unlock(&transport->mutex);
