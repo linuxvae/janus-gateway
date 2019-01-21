@@ -1166,6 +1166,7 @@ int janus_process_incoming_request(janus_request *request) {
 		return ret;
 	}
 	json_t *root = request->message;
+	
 	if(json_object_get(root, "srtc")){
 		return janus_process_incoming_request_srtc(request);
 	}else{
@@ -1191,8 +1192,9 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
 	janus_session *session = NULL;
 	janus_ice_handle *handle = NULL;
+	int server_type = -1;
 
-  char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+	 char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 	JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
 
 
@@ -1212,8 +1214,32 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	json_t *username = json_object_get(root, "username");
 	const gchar *username_text = json_string_value(username);
 
-	json_t *media = json_object_get(root, "media");
-	if(media== NULL || !signal_server){//call 需要区查找callee的name ssesion
+	json_t *eventtype = NULL;
+	if(!strcasecmp(message_text, "event")){
+		eventtype = json_object_get(root, "eventtype");
+		const gchar * event_message = json_string_value(eventtype);
+		if(!strcasecmp(event_message, "call")){//event call 需要区查找callee的name ssesion
+			server_type = SERVER_C;
+			json_t *body = json_object_get(root, "body");
+			/* Is there an SDP attached? */
+			json_t *calleeusername = json_object_get(body, "calleename");
+			const gchar *calleeusername_text = json_string_value(calleeusername);
+			session = janus_session_find_by_username(calleeusername_text);
+			if(session == NULL){
+				JANUS_LOG(LOG_ERR, "Couldn't find any session %s \n", calleeusername_text);
+				ret = janus_process_error(request, session_id, transaction_text, JANUS_ERROR_SESSION_NOT_FOUND, "No such session %"SCNu64"", session_id);
+				goto srtcdone;
+			}
+		}
+	}else if(!strcasecmp(message_text, "call") && signal_server){
+		server_type = SERVER_A;
+	}else{
+		server_type = SERVER_B;
+	}
+	if(handle->app_handle->srtc_type == -1){
+		handle->app_handle->srtc_type = server_type;
+	}
+	if(session == NULL){
 		session = janus_session_find_by_username(username_text);
 	}
 
@@ -1275,26 +1301,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		}
 	}
 
-	int server_type = -1;
-	if(session == NULL ){
-		if(!signal_server){
-			server_type = SERVER_B;
-			goto Media_Server;
-		}
-		else if(!strcasecmp(message_text, "call")){
-			server_type = SERVER_C;
-			json_t *body = json_object_get(root, "body");
-			/* Is there an SDP attached? */
-			json_t *calleeusername = json_object_get(body, "calleename");
-			const gchar *calleeusername_text = json_string_value(calleeusername);
-			session = janus_session_find_by_username(calleeusername_text);
-			if(session == NULL){
-				JANUS_LOG(LOG_ERR, "Couldn't find any session %s \n", calleeusername_text);
-				ret = janus_process_error(request, session_id, transaction_text, JANUS_ERROR_SESSION_NOT_FOUND, "No such session %"SCNu64"", session_id);
-				goto srtcdone;
-			}
-		}
-	}
+
 	session_id = session->session_id;
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
@@ -1305,9 +1312,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
 		goto srtcdone;
 	}
-	if(handle->app_handle->srtc_type == -1){
-		handle->app_handle->srtc_type = server_type;
-	}
+
 	if(signal_server == TRUE){
 		if(!strcasecmp(message_text, "unregister")){
 			if(handle != NULL) {
@@ -1332,8 +1337,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			ret = janus_process_success(request, reply);
 			/* Notify event handlers as well */
 			if(janus_events_is_enabled())
-				janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);
-			goto srtcdone;
+				janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);			
 		}else{//call,relay call
 			json_incref(root);
 			janus_plugin_result *result = plugin_t->handle_message(handle->app_handle,
@@ -1361,13 +1365,14 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 					(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
 				janus_plugin_result_destroy(result);
 			}
-			goto srtcdone;
-
 		}
-
+		goto srtcdone;
 	}
-Media_Server:
 
+
+
+
+Media_Server:
 	//deal media server
 	//find session by user name
 	if(!strcasecmp(message_text, "keepalive")){
@@ -3287,9 +3292,11 @@ static void *janus_transport_requests(void *data) {
 			/* Process the request synchronously only it's not a message for a plugin */
 			json_t *message = json_object_get(request->message, "janus");
 			json_t *srtc = json_object_get(request->message, "srtc");
+		
 			const gchar *message_text = json_string_value(message);
 			const gchar *srtc_text = json_string_value(srtc);
-			if(srtc && (!strcasecmp(srtc_text, "call")||!strcasecmp(srtc_text, "accept"))){//需要同步进行call accept 防止session没建立起来
+			if(srtc && (!strcasecmp(srtc_text, "call") ||!strcasecmp(srtc_text, "event") 
+				|| !strcasecmp(srtc_text, "call")||!strcasecmp(srtc_text, "accept"))){//需要同步进行call accept 防止session没建立起来
 				janus_process_incoming_request(request);
 			}else if((message_text && !strcasecmp(message_text, "message")) || (srtc)) {
 				/* Spawn a task thread */
@@ -3414,7 +3421,9 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 
 	json_t *srtc = json_object_get(message, "srtc");
 	if(srtc){
-		janus_session_notify_event(session, event);
+		
+		json_object_set_new(message, "session_id", session->session_id);
+		janus_session_notify_event(session, message);
 		goto R_OK;
 	}
 	

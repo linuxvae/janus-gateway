@@ -206,9 +206,6 @@ ERROR:
 
 static int* create_session_and_relay(janus_plugin_session *handle, char *transaction, json_t *root, json_t *relay_server){
 	srtc_relay_message_session_t* session;
-	json_t *message = json_object_get(root, "srtc");
-	const gchar *message_text = json_string_value(message);
-
 
 	char *server_text = json_dumps(relay_server, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 	JANUS_LOG(LOG_WARN, "root message %s\n", server_text);
@@ -227,6 +224,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	srtc_session->mod_srtc_sessions[srtc_rlay_msg_module.srtc_module_index] = session;
 	/* Convert to string and enqueue */
 	//json_object_del(root, "relay");
+
 	char *payload = json_dumps(root, json_format);
 	g_async_queue_push(session->messages, payload);
 	lws_callback_on_writable(session->wsi);
@@ -237,24 +235,22 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 static int
 	janus_srtc_relay_handle_call(janus_plugin_session *handle, json_t *root, janus_message_call_t *v)
 {
-	if(v->relay){
-		if(signal_server){//信令服务器处理relay的call 直接通过handle中的session sendmessage 发给B
-			handle->srtc_type = SERVER_C;
-			//do nothing
-		}else{//创建session and创建websocket 发送relay成功后destroy/只作为暂时的发送作用
-			json_t *relay_server = json_object_get(root, "relay");
-			if(relay_server){
-				create_session_and_relay(handle,v->transaction, root, relay_server);
-			}
-			handle->srtc_type = SERVER_B;
+	json_t *message = json_object_get(root, "srtc");
+	const gchar *message_text = json_string_value(message);
+	if(handle->srtc_type = SERVER_B){
+		json_t *relay_server = json_object_get(root, "relay");
+		
+		json_object_set_new(root, "srtc", "event");
+		json_object_set_new(root, "eventtype", message_text);
+		if(relay_server){
+			create_session_and_relay(handle,v->transaction, root, relay_server);
 		}
-
-	}else if(signal_server){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
+		handle->srtc_type = SERVER_B;
+	}else if(handle->srtc_type = SERVER_A){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
 		json_t *media_server = json_object_get(root, "media");
 		if(media_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
 		}
-		handle->srtc_type = SERVER_A;
 	}
 	return srtc_handle_call_next(handle, root, v);
 }

@@ -193,15 +193,19 @@ static void *janus_srtc_handler(void *data) {
 
 		json_t *srtc = json_object_get(root, "srtc");
 		const gchar *message_text = json_string_value(srtc);
+		
 		if(!strcasecmp(message_text, "call")){
 			janus_srtc_handle_call_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "accept")){
 			janus_srtc_handle_accept_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "hangup")){
 			janus_srtc_handle_hangup_init(handle, transaction, root, jsep);
-
-		}else{//register or tricle
-			JANUS_LOG(LOG_ERR, "unkonw message %s...\n", message_text);
+		}else if(!strcasecmp(message_text, "event")){//register or tricle
+			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
+			srtc_handle_message(handle, transaction, root, jsep);
+		}
+		else if(!strcasecmp(message_text, "register")){//register or tricle
+			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
 			srtc_handle_message(handle, transaction, root, jsep);
 		}
 

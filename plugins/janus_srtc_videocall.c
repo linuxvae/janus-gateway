@@ -90,12 +90,14 @@ static int
 	if(ctx == NULL){
 		return srtc_handle_call_next(handle, message, v);
 	}
-	if(signal_server){
-		if(handle->srtc_type == SERVER_C){//转发消息
-			int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, v->jsep);
-		}
+	if(handle->srtc_type == SERVER_A ){
+		JANUS_LOG(LOG_ERR, "handle->srtc_type is SERVER_A \n", v->caller_name);
 		return srtc_handle_call_next(handle, message, v);
-	}
+	}else if(handle->srtc_type == SERVER_C){
+		JANUS_LOG(LOG_ERR, "handle->srtc_type is SERVER_C something is error \n", v->caller_name);
+		return srtc_handle_call_next(handle, message, v);
+	}		
+
 	janus_mutex_lock(&ctx->sessions_mutex);
 	if(g_hash_table_lookup(ctx->sessions, v->caller_name) != NULL) {
 		janus_mutex_unlock(&ctx->sessions_mutex);
@@ -518,6 +520,22 @@ static int janus_srtc_video_call_incoming_data(janus_plugin_session *handle, cha
 int janus_srtc_video_call_destory_plugin(void *ctx_){
 	srtc_video_call_ctx_t *ctx =(srtc_video_call_ctx_t*)ctx_;
 	//删除所有的session
+}
+
+int janus_srtc_video_call_handle_register(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
+	//1、判断appkey的合法性
+	//2、存储username 和当前服务器的外网IP
+	json_t *root = json_object_get(message, "srtc");
+	const gchar *root_text = json_string_value(root);
+	if(strcasecmp(root_text, "register")!= 0){
+		return srtc_handle_message_next(handle, transaction, message, jsep);
+	}
+	json_t *username = json_object_get(message, "username");
+	const gchar *username_text = json_string_value(username);
+	char *public_ip = janus_get_public_ip();
+	//存储
+
+	return 0;
 }
 
 void* janus_srtc_video_call_create_plugin(janus_callbacks *callback, const char *config_path){
