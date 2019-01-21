@@ -227,6 +227,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	//json_object_del(root, "relay");
 
 	char *payload = json_dumps(root, json_format);
+	JANUS_LOG(LOG_INFO, "#####relay###WebSockets send message %s\n", payload);
 	g_async_queue_push(session->messages, payload);
 	lws_callback_on_writable(session->wsi);
 	return 0;
