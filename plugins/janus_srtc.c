@@ -206,6 +206,10 @@ static void *janus_srtc_handler(void *data) {
 			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
 			srtc_handle_message(handle, transaction, root, jsep);
 		}
+		else if(!strcasecmp(message_text, "trickle")){//register or tricle
+			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
+			srtc_handle_message(handle, transaction, root, jsep);
+		}
 
 		/* All the requests to this plugin are handled asynchronously */
 error:

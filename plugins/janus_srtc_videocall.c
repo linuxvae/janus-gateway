@@ -553,10 +553,10 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 	}
 	if(handle->srtc_type == SERVER_A){
 		return srtc_handle_message_next(handle, transaction, message, jsep);
-	}else if(handle->srtc_type == SERVER_B){
+	}else if(handle->srtc_type == SERVER_C){
 		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}
-	else{ //media server
+	else{
 		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
 		janus_srtc_videocall_session *peer = session->peer;
 		if(peer == NULL) {
