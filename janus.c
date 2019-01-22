@@ -1388,7 +1388,101 @@ Media_Server:
 	}else if(!strcasecmp(message_text, "hangup")){//删除session和handle
 
 	}
-	else if(!strcasecmp(message_text, "avswitch")){
+	else if(!strcasecmp(message_text, "trickle")){
+		if(handle == NULL) {
+			/* Trickle is an handle-level command */
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
+			goto srtcdone;
+		}
+		if(handle->app == NULL || !janus_plugin_session_is_alive(handle->app_handle)) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this trickle candidate");
+			goto srtcdone;
+		}
+		json_t *body = json_object_get(root, "body");
+		json_t *candidate = json_object_get(body, "candidate");
+		json_t *candidates = json_object_get(body, "candidates");
+		if(candidate == NULL && candidates == NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_MISSING_MANDATORY_ELEMENT, "Missing mandatory element (candidate|candidates)");
+			goto srtcdone;
+		}
+		if(candidate != NULL && candidates != NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_JSON, "Can't have both candidate and candidates");
+			goto srtcdone;
+		}
+		if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_CLEANING)) {
+			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Received a trickle, but still cleaning a previous session\n", handle->handle_id);
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_WEBRTC_STATE, "Still cleaning a previous session");
+			goto srtcdone;
+		}
+		janus_mutex_lock(&handle->mutex);
+		if(!janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_TRICKLE)) {
+			/* It looks like this peer supports Trickle, after all */
+			JANUS_LOG(LOG_VERB, "Handle %"SCNu64" supports trickle even if it didn't negotiate it...\n", handle->handle_id);
+			janus_flags_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_TRICKLE);
+		}
+		/* Is there any stream ready? this trickle may get here before the SDP it relates to */
+		if(handle->stream == NULL) {
+			JANUS_LOG(LOG_WARN, "[%"SCNu64"] No stream, queueing this trickle as it got here before the SDP...\n", handle->handle_id);
+			/* Enqueue this trickle candidate(s), we'll process this later */
+			janus_ice_trickle *early_trickle = janus_ice_trickle_new(transaction_text, candidate ? candidate : candidates);
+			handle->pending_trickles = g_list_append(handle->pending_trickles, early_trickle);
+			/* Send the ack right away, an event will tell the application if the candidate(s) failed */
+			goto trickledone;
+		}
+		/* Is the ICE stack ready already? */
+		if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER) ||
+				!janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_GOT_OFFER) ||
+				!janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_GOT_ANSWER)) {
+			const char *cause = NULL;
+			if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER))
+				cause = "processing the offer";
+			else if(!janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_GOT_ANSWER))
+				cause = "waiting for the answer";
+			else if(!janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_GOT_OFFER))
+				cause = "waiting for the offer";
+			JANUS_LOG(LOG_VERB, "[%"SCNu64"] Still %s, queueing this trickle to wait until we're done there...\n",
+				handle->handle_id, cause);
+			/* Enqueue this trickle candidate(s), we'll process this later */
+			janus_ice_trickle *early_trickle = janus_ice_trickle_new(transaction_text, candidate ? candidate : candidates);
+			handle->pending_trickles = g_list_append(handle->pending_trickles, early_trickle);
+			/* Send the ack right away, an event will tell the application if the candidate(s) failed */
+			goto trickledone;
+		}
+		if(candidate != NULL) {
+			/* We got a single candidate */
+			int error = 0;
+			const char *error_string = NULL;
+			if((error = janus_ice_trickle_parse(handle, candidate, &error_string)) != 0) {
+				ret = janus_process_srtc_error(request, session_id, transaction_text, error, "%s", error_string);
+				janus_mutex_unlock(&handle->mutex);
+				goto srtcdone;
+			}
+		} else {
+			/* We got multiple candidates in an array */
+			if(!json_is_array(candidates)) {
+				ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_ELEMENT_TYPE, "candidates is not an array");
+				janus_mutex_unlock(&handle->mutex);
+				goto srtcdone;
+			}
+			JANUS_LOG(LOG_VERB, "Got multiple candidates (%zu)\n", json_array_size(candidates));
+			if(json_array_size(candidates) > 0) {
+				/* Handle remote candidates */
+				size_t i = 0;
+				for(i=0; i<json_array_size(candidates); i++) {
+					json_t *c = json_array_get(candidates, i);
+					/* FIXME We don't care if any trickle fails to parse */
+					janus_ice_trickle_parse(handle, c, NULL);
+				}
+			}
+		}
+
+trickledone:
+		janus_mutex_unlock(&handle->mutex);
+		/* We reply right away, not to block the web server... */
+		json_t *reply = janus_create_srtc_message("ack", session_id, transaction_text);
+		/* Send the success reply */
+		ret = janus_process_success(request, reply);
+	}else if(!strcasecmp(message_text, "avswitch")){
 
 	}else if(!strcasecmp(message_text, "enterroom")){//这里是另一个插件
 

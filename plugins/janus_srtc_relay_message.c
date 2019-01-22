@@ -260,7 +260,7 @@ static int
 	janus_srtc_relay_handle_accept(janus_plugin_session *handle, json_t *root, janus_message_accept_t *v)
 {
 	if(handle->srtc_type == SERVER_C){//创建session and创建websocket  ，查找数据库通过数据库模块找到callee IP+port进行relay，callback 发送给handle中的session
-		json_t *media_server = json_object_get(root, "media_server");
+		json_t *media_server = json_object_get(root, "media");
 		if(signal_server){
 			create_session_and_relay(handle,v->transaction, root, media_server);
 		}
