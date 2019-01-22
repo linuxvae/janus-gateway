@@ -490,7 +490,7 @@ static void janus_session_free(const janus_refcount *session_ref) {
 	}
 
 	janus_mutex_lock(&sessions_mutex);
-	g_hash_table_remove(name_sessions, &session->username); //函数调用不要锁两次
+	g_hash_table_remove(name_sessions, session->username); //函数调用不要锁两次
 	janus_mutex_unlock(&sessions_mutex);
 
 	if(session->username)
@@ -1303,7 +1303,9 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
 
-	handle = janus_session_handles_find(session, session->ice_handle_id);
+	if(handle == NULL){
+		handle = janus_session_handles_find(session, session->ice_handle_id);
+	}
 	if(!handle) {
 		JANUS_LOG(LOG_ERR, "Couldn't find any handle %"SCNu64" in session %"SCNu64"...\n", handle_id, session_id);
 		ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);

@@ -191,7 +191,7 @@ static void *janus_srtc_handler(void *data) {
 
 		json_t *srtc = json_object_get(root, "srtc");
 		const gchar *message_text = json_string_value(srtc);
-		
+
 		if(!strcasecmp(message_text, "call")){
 			janus_srtc_handle_call_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "accept")){
@@ -404,7 +404,7 @@ void janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 		*error = -2;
 		return;
 	}
-
+	janus_refcount_decrease(&session->handle->ref);
 //janus_videocall_hangup_media(handle);
 	return;
 
