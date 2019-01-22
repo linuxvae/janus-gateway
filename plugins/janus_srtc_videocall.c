@@ -289,7 +289,7 @@ static int
 
 	/* Send SDP to our peer */
 	json_object_set_new(message, "eventtype", json_string("accept"));
-	json_object_set_new(message, "srtc", json_string("event"));	
+	json_object_set_new(message, "srtc", json_string("event"));
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
 
@@ -330,7 +330,7 @@ static int
 
 	/* Send SDP to our peer */
 	json_object_set_new(message, "eventtype", json_string("hangup"));
-	json_object_set_new(message, "srtc", json_string("event"));	
+	json_object_set_new(message, "srtc", json_string("event"));
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
 
@@ -545,13 +545,14 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 	}
 	json_t *root = json_object_get(message, "srtc");
 	const gchar *root_text = json_string_value(root);
-	if(handle->srtc_type == SERVER_A || handle->srtc_type == SERVER_C){		
+	if(handle->srtc_type == SERVER_A || handle->srtc_type == SERVER_C){
 		if(!strcasecmp(root_text, "event")){
 			int ret = ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, message, NULL);
+			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
-	}	
-	if(handle->srtc_type == SERVER_A){		
-		return srtc_handle_message_next(handle, transaction, message, jsep);		
+	}
+	if(handle->srtc_type == SERVER_A){
+		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}else if(handle->srtc_type == SERVER_B){
 		return srtc_handle_message_next(handle, transaction, message, jsep);
 	}
@@ -564,7 +565,7 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 		}
 		if(!strcasecmp(root_text, "trickle")|| !strcasecmp(root_text, "refuse")){
 			json_object_set_new(message, "eventtype", json_string(root_text));
-			json_object_set_new(message, "srtc", json_string("event"));			
+			json_object_set_new(message, "srtc", json_string("event"));
 		}
 		int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
 	}
