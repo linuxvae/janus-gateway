@@ -1195,6 +1195,8 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
 	janus_session *session = NULL;
 	janus_ice_handle *handle = NULL;
+	janus_session * peer_session = NULL;
+	janus_ice_handle *peer_handle = NULL;
 	int server_type = -1;
 
 	char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
@@ -1301,8 +1303,12 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		}
 	}
 	if(!signal_server && (!strcasecmp(message_text, "call"))){
+		json_t *body = json_object_get(root, "body");
+		/* Is there an SDP attached? */
+		json_t *calleeusername = json_object_get(body, "calleename");
+		const gchar *calleeusername_text = json_string_value(calleeusername);
 		//创建对方的session和handle
-		session->peer_session = janus_session_create_srtc(session_id, username_text);
+		session->peer_session = janus_session_create_srtc(session_id, calleeusername_text);
 		if(session == NULL) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
@@ -1325,7 +1331,43 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 
 	}
 	if(!signal_server && !strcasecmp(message_text, "accept")){
-
+		json_t *body = json_object_get(root, "body");
+		/* Is there an SDP attached? */
+		json_t *callerusername = json_object_get(body, "callername");
+		const gchar *callerusername_text = json_string_value(callerusername);
+		peer_session = janus_session_find_by_username(callerusername_text);
+		if(peer_session == NULL){
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+			goto srtcdone;
+		}
+		session = peer_session->peer_session;
+		handle  = peer_session->peer_handle;
+		if(session == NULL || handle == NULL){
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+			goto srtcdone;
+		}
+		peer_session->peer_handle = NULL;
+		peer_session->peer_session = NULL;
+		session_id = session->session_id;
+		janus_refcount_increase(&session->ref);
+		session->source = janus_request_new(request->transport, request->instance, NULL, FALSE, NULL);		
+		request->transport->session_created(request->instance, session->session_id);
+		if(janus_events_is_enabled()) {
+			/* Session created, add info on the transport that originated it */
+			json_t *transport = json_object();
+			json_object_set_new(transport, "transport", json_string(session->source->transport->get_package()));
+			char id[32];
+			memset(id, 0, sizeof(id));
+			g_snprintf(id, sizeof(id), "%p", session->source->instance);
+			json_object_set_new(transport, "id", json_string(id));
+			janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "created", transport);
+		}	
+		handle_id = handle->handle_id;
+		session->ice_handle_id = handle->handle_id;
+		/* We increase the counter as this request is using the handle */
+		janus_refcount_increase(&handle->ref);
+		
+		
 	}
 
 
