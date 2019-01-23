@@ -40,6 +40,8 @@
 
 /*! \brief Helper to address requests and their sources (e.g., a specific HTTP connection, websocket, RabbitMQ or others) */
 typedef struct janus_request janus_request;
+typedef struct janus_session janus_session ;
+typedef struct janus_ice_handle janus_ice_handle;
 
 /*! \brief Janus Core-Client session */
 typedef struct janus_session {

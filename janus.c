@@ -441,7 +441,7 @@ void janus_transport_task(gpointer data, gpointer user_data);
 ///@{
 json_t *janus_ice_handle_handle_sdp(janus_ice_handle *ice_handle,  const char *sdp_type, const char *sdp, gboolean restart);
 int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *transaction, json_t *message, json_t *jsep);
-json_t *plugin_handle_peer_sdp(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *sdp_type, const char *sdp, gboolean restart);
+json_t *plugin_handle_peer_sdp(janus_plugin_session *plugin_session,json_t *jsep, gboolean restart);
 json_t *janus_plugin_handle_sdp(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *sdp_type, const char *sdp, gboolean restart);
 void janus_plugin_relay_rtp(janus_plugin_session *plugin_session, int video, char *buf, int len);
 void janus_plugin_relay_rtcp(janus_plugin_session *plugin_session, int video, char *buf, int len);
@@ -3547,10 +3547,10 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 
 	json_t *srtc = json_object_get(message, "srtc");
 	if(srtc){
-		if(merged_jsep != NULL)
+		if(merged_jsep != NULL){
 			json_t *body = json_object_get(message, "body");
 			json_object_set_new(body, "jsep", merged_jsep);
-		
+		}
 		json_object_set_new(message, "session_id", json_integer(session->session_id));
 		janus_session_notify_event(session, message);
 		goto RSOK;
@@ -3591,10 +3591,10 @@ RSOK:
 }
 
 json_t *plugin_handle_peer_sdp(
-	janus_plugin_session *plugin_session, janus_plugin *plugin, json_t *jsep, gboolean restart) {
+	janus_plugin_session *plugin_session, json_t *jsep, gboolean restart) {
 	json_t *merged_jsep = NULL;
 	if(!janus_plugin_session_is_alive(plugin_session) ||
-			plugin == NULL || sdp_type == NULL || sdp == NULL) {
+			jsep == NULL) {
 		JANUS_LOG(LOG_ERR, "Invalid arguments\n");
 		return NULL;
 	}
@@ -3605,7 +3605,7 @@ json_t *plugin_handle_peer_sdp(
 		return NULL;
 	}
 	janus_refcount_increase(&caller_ice_handle->ref);
-	janus_session *caller_session = caller_ice_handle->session;		
+	janus_session *caller_session = caller_ice_handle->session;
 	if(!caller_session || g_atomic_int_get(&caller_session->destroyed)) {
 		JANUS_LOG(LOG_ERR, "ice_handle Invalid \n");
 		janus_refcount_decrease(&plugin_session->ref);
@@ -3637,7 +3637,7 @@ json_t *plugin_handle_peer_sdp(
 			return NULL;
 		}
 	}
-	
+
 	if((restart || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_RESEND_TRICKLES))
 			&& janus_ice_is_full_trickle_enabled()) {
 		/* We're restarting ICE, send our trickle candidates again */

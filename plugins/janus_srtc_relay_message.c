@@ -143,7 +143,7 @@ static int janus_client_websockets_callback(
 					//if OK:
 					//结束session
 				}
-				
+
 
 				return 0;
 			}
@@ -238,6 +238,11 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 static int
 	janus_srtc_relay_handle_call(janus_plugin_session *handle, json_t *root, janus_message_call_t *v)
 {
+	srtc_relay_message_ctx_t *relay_ctx = srtc_get_module_ctx(srtc_rlay_msg_module);
+	if(relay_ctx == NULL){
+		JANUS_LOG(LOG_ERR, "srtc_rlay_msg_module ctx not create!\n");
+		return srtc_handle_call_next(handle, root, v);
+	}
 	json_t *message = json_object_get(root, "srtc");
 	const gchar *message_text = json_string_value(message);
 	if(handle->srtc_type == SERVER_B){
@@ -245,7 +250,7 @@ static int
 		json_object_set_new(root, "eventtype", json_string(message_text));
 		json_object_set_new(root, "srtc", json_string("event"));
 
-		v->jsep = relay_ctx->gateway->plugin_handle_peer_sdp(peer->handle,, &janus_srtc_plugin, v->jsep, false);
+		v->jsep = relay_ctx->gateway->plugin_handle_peer_sdp(handle, v->jsep, FALSE);
 		json_object_set_new(root, "jsep", v->jsep);
 		if(relay_server){
 			create_session_and_relay(handle,v->transaction, root, relay_server);
@@ -283,7 +288,7 @@ static int
 		char *payload = json_dumps(root, json_format);
 		g_async_queue_push(session->messages, payload);
 		lws_callback_on_writable(session->wsi);
-	}	
+	}
 	return srtc_handle_hangup_next(handle, root, v);
 }
 
@@ -500,7 +505,7 @@ int janus_srtc_relay_handle_relay(janus_plugin_session *handle, char *transactio
 	}
 	json_t *root = json_object_get(message, "srtc");
 	const gchar *root_text = json_string_value(root);
-	if(handle->srtc_type == SERVER_A || handle->srtc_type == SERVER_C){		
+	if(handle->srtc_type == SERVER_A || handle->srtc_type == SERVER_C){
 		if(!strcasecmp(root_text, "event")){
 			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
@@ -514,7 +519,7 @@ int janus_srtc_relay_handle_relay(janus_plugin_session *handle, char *transactio
 		}
 	}
 	//其他信息转发 需要设定条件
-	
+
 	//if(handle->srtc_type == SERVER_A||handle->srtc_type == SERVER_C){
 	//	//处理trickle
 	//	char *payload = json_dumps(message, json_format);

@@ -352,6 +352,7 @@ struct janus_callbacks {
 	 * @param[in] jsep The json_t object containing the JSEP type, the SDP attached to the message/event, if any (offer/answer), and whether this is an update */
 	int (* const push_event)(janus_plugin_session *handle, janus_plugin *plugin, const char *transaction, json_t *message, json_t *jsep);
 
+	json_t* (*plugin_handle_peer_sdp)(janus_plugin_session *plugin_session, json_t*jsep, gboolean restart);
 	/*! \brief Callback to relay RTP packets to a peer
 	 * @param[in] handle The plugin/gateway session used for this peer
 	 * @param[in] video Whether this is an audio or a video frame
