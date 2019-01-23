@@ -1333,7 +1333,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	if(!signal_server && !strcasecmp(message_text, "accept")){
 		json_t *body = json_object_get(root, "body");
 		/* Is there an SDP attached? */
-		json_t *callerusername = json_object_get(body, "callername");
+		json_t *callerusername = json_object_get(body, "callerusername");
 		const gchar *callerusername_text = json_string_value(callerusername);
 		peer_session = janus_session_find_by_username(callerusername_text);
 		if(peer_session == NULL){
@@ -1350,7 +1350,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		peer_session->peer_session = NULL;
 		session_id = session->session_id;
 		janus_refcount_increase(&session->ref);
-		session->source = janus_request_new(request->transport, request->instance, NULL, FALSE, NULL);		
+		session->source = janus_request_new(request->transport, request->instance, NULL, FALSE, NULL);
 		request->transport->session_created(request->instance, session->session_id);
 		if(janus_events_is_enabled()) {
 			/* Session created, add info on the transport that originated it */
@@ -1361,13 +1361,13 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			g_snprintf(id, sizeof(id), "%p", session->source->instance);
 			json_object_set_new(transport, "id", json_string(id));
 			janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "created", transport);
-		}	
+		}
 		handle_id = handle->handle_id;
 		session->ice_handle_id = handle->handle_id;
 		/* We increase the counter as this request is using the handle */
 		janus_refcount_increase(&handle->ref);
-		
-		
+
+
 	}
 
 
