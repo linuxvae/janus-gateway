@@ -33,7 +33,7 @@ typedef struct {
 	//存储相关模块的配置信息
 	GHashTable *sessions;
 	janus_mutex sessions_mutex;
-janus_callbacks *gateway;
+	janus_callbacks *gateway;
 }srtc_video_call_ctx_t;
 
 typedef struct janus_srtc_videocall_session {
@@ -145,6 +145,7 @@ static int
 		goto error;
 	}
 
+	
 	return srtc_handle_call_next(handle, message, v);
 error:
 	JANUS_LOG(LOG_VERB, "Leaving VideoCall handler thread error \n");
@@ -290,6 +291,7 @@ static int
 	/* Send SDP to our peer */
 	json_object_set_new(message, "eventtype", json_string("accept"));
 	json_object_set_new(message, "srtc", json_string("event"));
+	
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
 

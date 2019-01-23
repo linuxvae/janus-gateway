@@ -439,7 +439,9 @@ void janus_transport_task(gpointer data, gpointer user_data);
  * core is handled here.
  */
 ///@{
+json_t *janus_ice_handle_handle_sdp(janus_ice_handle *ice_handle,  const char *sdp_type, const char *sdp, gboolean restart);
 int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *transaction, json_t *message, json_t *jsep);
+json_t *plugin_handle_peer_sdp(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *sdp_type, const char *sdp, gboolean restart);
 json_t *janus_plugin_handle_sdp(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *sdp_type, const char *sdp, gboolean restart);
 void janus_plugin_relay_rtp(janus_plugin_session *plugin_session, int video, char *buf, int len);
 void janus_plugin_relay_rtcp(janus_plugin_session *plugin_session, int video, char *buf, int len);
@@ -452,6 +454,7 @@ gboolean janus_plugin_auth_signature_contains(janus_plugin *plugin, const char *
 static janus_callbacks janus_handler_plugin =
 	{
 		.push_event = janus_plugin_push_event,
+		.plugin_handle_peer_sdp = plugin_handle_peer_sdp,
 		.relay_rtp = janus_plugin_relay_rtp,
 		.relay_rtcp = janus_plugin_relay_rtcp,
 		.relay_data = janus_plugin_relay_data,
@@ -1250,7 +1253,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	//三种情况需要创建session和handle
 	if(session == NULL &&
 		( (!strcasecmp(message_text, "register")||
-		(!signal_server && (!strcasecmp(message_text, "call")||!strcasecmp(message_text, "accept"))))) ){
+		(!signal_server && !strcasecmp(message_text, "call"))))){
 		session = janus_session_create_srtc(session_id, username_text);
 		if(session == NULL) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
@@ -1296,6 +1299,33 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
 			goto srtcdone;
 		}
+	}
+	if(!signal_server && (!strcasecmp(message_text, "call"))){
+		//创建对方的session和handle
+		session->peer_session = janus_session_create_srtc(session_id, username_text);
+		if(session == NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			goto srtcdone;
+		}
+		session->peer_handle = janus_ice_handle_create(session, NULL);
+		if(handle == NULL) {
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			goto srtcdone;
+		}
+		session->peer_session->ice_handle_id = session->peer_handle->handle_id;
+		/* Attach to the plugin */
+		int error = 0;
+		if((error = janus_ice_handle_attach_plugin(session->peer_session, session->peer_handle, plugin_t)) != 0) {
+			/* TODO Make error struct to pass verbose information */
+			janus_session_handles_remove(session, handle);
+			JANUS_LOG(LOG_ERR, "Couldn't attach to plugin '%s', error '%d'\n", plugin_text, error);
+			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
+			goto srtcdone;
+		}
+
+	}
+	if(!signal_server && !strcasecmp(message_text, "accept")){
+
 	}
 
 
@@ -3517,6 +3547,10 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 
 	json_t *srtc = json_object_get(message, "srtc");
 	if(srtc){
+		if(merged_jsep != NULL)
+			json_t *body = json_object_get(message, "body");
+			json_object_set_new(body, "jsep", merged_jsep);
+		
 		json_object_set_new(message, "session_id", json_integer(session->session_id));
 		janus_session_notify_event(session, message);
 		goto RSOK;
@@ -3535,6 +3569,8 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Sending event to transport...\n", ice_handle->handle_id);
 	janus_session_notify_event(session, event);
 
+RSOK:
+
 	if((restart || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_RESEND_TRICKLES))
 			&& janus_ice_is_full_trickle_enabled()) {
 		/* We're restarting ICE, send our trickle candidates again */
@@ -3548,20 +3584,84 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 		janus_events_notify_handlers(JANUS_EVENT_TYPE_JSEP,
 			session->session_id, ice_handle->handle_id, ice_handle->opaque_id, "local", merged_sdp_type, merged_sdp);
 	}
-RSOK:
+
 	janus_refcount_decrease(&plugin_session->ref);
 	janus_refcount_decrease(&ice_handle->ref);
 	return JANUS_OK;
 }
 
-json_t *janus_plugin_handle_sdp(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *sdp_type, const char *sdp, gboolean restart) {
+json_t *plugin_handle_peer_sdp(
+	janus_plugin_session *plugin_session, janus_plugin *plugin, json_t *jsep, gboolean restart) {
+	json_t *merged_jsep = NULL;
 	if(!janus_plugin_session_is_alive(plugin_session) ||
 			plugin == NULL || sdp_type == NULL || sdp == NULL) {
 		JANUS_LOG(LOG_ERR, "Invalid arguments\n");
 		return NULL;
 	}
+	janus_refcount_increase(&plugin_session->ref);
+	janus_ice_handle *caller_ice_handle = (janus_ice_handle *)plugin_session->gateway_handle;
+	if(!caller_ice_handle){
+		JANUS_LOG(LOG_ERR, "ice_handle Invalid \n");
+		return NULL;
+	}
+	janus_refcount_increase(&caller_ice_handle->ref);
+	janus_session *caller_session = caller_ice_handle->session;		
+	if(!caller_session || g_atomic_int_get(&caller_session->destroyed)) {
+		JANUS_LOG(LOG_ERR, "ice_handle Invalid \n");
+		janus_refcount_decrease(&plugin_session->ref);
+		janus_refcount_decrease(&caller_ice_handle->ref);
+		return NULL;
+	}
+	const char *sdp_type = json_string_value(json_object_get(jsep, "type"));
+	const char *sdp = json_string_value(json_object_get(jsep, "sdp"));
+	janus_ice_handle *ice_handle = caller_session->peer_handle;
+	janus_session *session = caller_session->peer_session;
+	if(ice_handle == NULL || session == NULL ){
+		JANUS_LOG(LOG_ERR, "session or ice_handle Invalid \n");
+		janus_refcount_decrease(&plugin_session->ref);
+		janus_refcount_decrease(&caller_ice_handle->ref);
+		return NULL;
+	}
+	merged_jsep = janus_ice_handle_handle_sdp(ice_handle,sdp_type, sdp ,restart);
+	if(merged_jsep == NULL) {
+		if(ice_handle == NULL || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_STOP)
+				|| janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_ALERT)) {
+			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Cannot push event (handle not available anymore or negotiation stopped)\n", ice_handle->handle_id);
+			janus_refcount_decrease(&plugin_session->ref);
+			janus_refcount_decrease(&ice_handle->ref);
+			return NULL;
+		} else {
+			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Cannot push event (JSON error: problem with the SDP)\n", ice_handle->handle_id);
+			janus_refcount_decrease(&plugin_session->ref);
+			janus_refcount_decrease(&ice_handle->ref);
+			return NULL;
+		}
+	}
+	
+	if((restart || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_RESEND_TRICKLES))
+			&& janus_ice_is_full_trickle_enabled()) {
+		/* We're restarting ICE, send our trickle candidates again */
+		janus_ice_resend_trickles(ice_handle);
+	}
+
+	janus_refcount_decrease(&plugin_session->ref);
+	janus_refcount_decrease(&caller_ice_handle->ref);
+	return merged_jsep;
+
+}
+
+json_t *janus_plugin_handle_sdp(janus_plugin_session *plugin_session, janus_plugin *plugin, const char *sdp_type, const char *sdp, gboolean restart) {
+	if(!janus_plugin_session_is_alive(plugin_session) ||
+				  plugin == NULL || sdp_type == NULL || sdp == NULL) {
+		  JANUS_LOG(LOG_ERR, "Invalid arguments\n");
+		  return NULL;
+ 	 }
 	janus_ice_handle *ice_handle = (janus_ice_handle *)plugin_session->gateway_handle;
-	//~ if(ice_handle == NULL || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_READY)) {
+ 	 //~ if(ice_handle == NULL || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_READY)) {
+
+	return janus_ice_handle_handle_sdp(ice_handle,sdp_type, sdp ,restart);
+}
+json_t *janus_ice_handle_handle_sdp(janus_ice_handle *ice_handle,  const char *sdp_type, const char *sdp, gboolean restart) {
 	if(ice_handle == NULL) {
 		JANUS_LOG(LOG_ERR, "Invalid ICE handle\n");
 		return NULL;

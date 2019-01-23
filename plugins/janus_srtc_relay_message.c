@@ -49,6 +49,7 @@ typedef struct {
 	char *cert_key_path;
 	gint destory_flag;
 	struct lws_context *wsc;
+	janus_callbacks *gateway;
 }srtc_relay_message_ctx_t;
 
 typedef struct {
@@ -243,7 +244,9 @@ static int
 		json_t *relay_server = json_object_get(root, "relay");
 		json_object_set_new(root, "eventtype", json_string(message_text));
 		json_object_set_new(root, "srtc", json_string("event"));
-		
+
+		v->jsep = relay_ctx->gateway->plugin_handle_peer_sdp(peer->handle,, &janus_srtc_plugin, v->jsep, false);
+		json_object_set_new(root, "jsep", v->jsep);
 		if(relay_server){
 			create_session_and_relay(handle,v->transaction, root, relay_server);
 		}
@@ -576,6 +579,7 @@ void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *
 		JANUS_LOG(LOG_ERR, "Got error %d (%s) trying to launch the WebSockets thread...\n", error->code, error->message ? error->message : "??");
 		goto ERROR;
 	}
+	relay_ctx->gateway = callback;
 	return relay_ctx;
 ERROR:
 	if(relay_ctx){
