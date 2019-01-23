@@ -320,7 +320,7 @@ int	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction,
 	v.caller_name = json_string_value(username);
 	json_t *relay = json_object_get(message, "relay");
 	json_t *body = json_object_get(message, "body");
-	v.jsep = json_object_get(body, "jseep");
+	v.jsep = json_object_get(body, "jsep");
 	json_t *callee_name = json_object_get(body, "calleename");
 	v.callee_name = json_string_value(callee_name);
 	if(relay != NULL){
@@ -335,7 +335,7 @@ int janus_srtc_handle_accept_init(janus_plugin_session *handle, char *transactio
 	v.caller_name = json_string_value(username);
 	json_t *relay = json_object_get(message, "relay");
 	json_t *body = json_object_get(message, "body");
-	v.jsep = json_object_get(body, "jseep");
+	v.jsep = json_object_get(body, "jsep");
 	json_t *callee_name = json_object_get(body, "calleename");
 	v.callee_name = json_string_value(callee_name);
 	if(relay != NULL){
