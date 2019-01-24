@@ -297,7 +297,7 @@ static janus_srtc_session_t* create_session_and_relay(janus_plugin_session *hand
 	srtc_session->mod_srtc_sessions[srtc_rlay_msg_module.srtc_module_index] = session;
 	/* Convert to string and enqueue */
 	//json_object_del(root, "relay");
-
+	session->handle = handle;
 	char *payload = json_dumps(root, json_format);
 	JANUS_LOG(LOG_INFO, "#####relay###WebSockets send message %s\n", payload);
 	g_async_queue_push(session->messages, payload);
