@@ -1308,7 +1308,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		json_t *calleeusername = json_object_get(body, "calleename");
 		const gchar *calleeusername_text = json_string_value(calleeusername);
 		//创建对方的session和handle
-		session->peer_session = janus_session_create_srtc(session_id, calleeusername_text);
+		session->peer_session = janus_session_create_srtc(0, calleeusername_text);
 		if(session == NULL) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
