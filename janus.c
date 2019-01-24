@@ -1313,7 +1313,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
-		session->peer_handle = janus_ice_handle_create(session, NULL);
+		session->peer_handle = janus_ice_handle_create(session->peer_session, NULL);
 		if(handle == NULL) {
 			ret = janus_process_srtc_error(request, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
