@@ -89,7 +89,8 @@ static int janus_client_websockets_callback(
 			JANUS_LOG(LOG_ERR, "srtc_relay_message_ctx_t srtc_get_module_ctx failed!\n");
 			return 0;
 		}
-		
+
+		int error;
 		switch(reason) {
 			case LWS_CALLBACK_CLIENT_ESTABLISHED: {
   				lws_callback_on_writable(wsi);
@@ -105,16 +106,16 @@ static int janus_client_websockets_callback(
 					relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
 				}
 				break;
-			case LWS_CALLBACK_CLOSED:	
+			case LWS_CALLBACK_CLOSED:
 				janus_srtc_relay_destroy_session(relay_session->handle, &error);
 				if(signal_server){
 					json_error_t error;
 					json_t *root = json_loads("{\"srtc\":\"event\",\"eventtype\":\"hangup\"}", 0, &error);
 					relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
-				}				
+				}
 				break;
 			case LWS_CALLBACK_WSI_DESTROY: {
-				janus_srtc_relay_destroy_session(relay_session->handle, &error);	
+				janus_srtc_relay_destroy_session(relay_session->handle, &error);
 				if(signal_server){
 					json_error_t error;
 					json_t *root = json_loads("{\"srtc\":\"event\",\"eventtype\":\"hangup\"}", 0, &error);
@@ -122,7 +123,7 @@ static int janus_client_websockets_callback(
 				}
 				break;
 			}
-				
+
 			case LWS_CALLBACK_CLIENT_WRITEABLE: {
 				if(relay_session == NULL || relay_session->wsi == NULL){
 					JANUS_LOG(LOG_ERR, "[%p] Invalid WebSocket client instance...\n", wsi);
@@ -181,10 +182,9 @@ static int janus_client_websockets_callback(
 				JANUS_LOG(LOG_VERB, "[%p] WebSocket Got %zu bytes: \n", wsi, len);
 				if(!signal_server){
 					//if OK:
-					int error;
 					janus_srtc_relay_destroy_session(relay_session->handle, &error);
 					return 0;
-				}				
+				}
 
 				/* Is this a new message, or part of a fragmented one? */
 				const size_t remaining = lws_remaining_packet_payload(wsi);
@@ -209,11 +209,11 @@ static int janus_client_websockets_callback(
 				}
 				JANUS_LOG(LOG_HUGE, "[%p] Done, parsing message: %zu bytes\n", wsi, strlen(relay_session->incoming));
 				/* If we got here, the message is complete: parse the JSON payload */
-				json_error_t error;
-				json_t *root = json_loads(relay_session->incoming, 0, &error);
+				json_error_t js_error;
+				json_t *root = json_loads(relay_session->incoming, 0, &js_error);
 				g_free(relay_session->incoming);
 				relay_session->incoming = NULL;
-				/* Notify the core, passing both the object and, since it may be needed, the error */				
+				/* Notify the core, passing both the object and, since it may be needed, the error */
 				relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
 				break;
 			}
@@ -617,7 +617,7 @@ void janus_srtc_relay_destroy_session(janus_plugin_session *handle, int *error){
 	}
 
 	/* Cleanup */
-	JANUS_LOG(LOG_INFO, "[%p] Destroying WebSocket client\n", wsi);
+	JANUS_LOG(LOG_INFO, "[%p] Destroying WebSocket client\n", relay_session->wsi);
 	relay_session->wsi = NULL;
 	/* Remove messages queue too, if needed */
 	if(relay_session->messages != NULL) {
@@ -627,7 +627,7 @@ void janus_srtc_relay_destroy_session(janus_plugin_session *handle, int *error){
 		}
 		g_async_queue_unref(relay_session->messages);
 	}
-	/* ... and the shared buffers */	
+	/* ... and the shared buffers */
 	g_free(relay_session->incoming);
 	relay_session->incoming = NULL;
 	g_free(relay_session->buffer);
