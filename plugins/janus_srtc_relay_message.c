@@ -15,10 +15,13 @@ static srtc_handle_call_pt          srtc_handle_call_next;
 static srtc_handle_accept_pt          srtc_handle_accept_next;
 static srtc_handle_hangup_pt          srtc_handle_hangup_next;
 static srtc_handle_message_pt          srtc_handle_message_next;
+static srtc_destroy_session_pt 			srtc_destroy_session_next;
 
 
 
 extern gboolean signal_server;
+extern janus_plugin janus_srtc_plugin ;
+
 /* JSON serialization options */
 static size_t json_format = JSON_INDENT(3) | JSON_PRESERVE_ORDER;
 
@@ -56,9 +59,10 @@ typedef struct {
 	janus_plugin_session *handle;
 	struct lws_client_connect_info i;
 	struct lws *wsi;
-	void 	*callee_info;
-	void 	*caller_info;
+	char  	*callee_name;
+	char 	*caller_name;
 	GAsyncQueue *messages;
+	char *incoming;							/* Buffer containing the incoming message to process (in case there are fragments) */
 	unsigned char *buffer;					/* Buffer containing the message to send */
 	int buflen;								/* Length of the buffer (may be resized after re-allocations) */
 	int bufpending;							/* Data an interrupted previous write couldn't send */
@@ -76,13 +80,49 @@ static int janus_client_websockets_callback(
 
 			JANUS_LOG(LOG_VERB, "[%d] WebSocket message  accepted\n", reason);
 		srtc_relay_message_session_t *relay_session = (srtc_relay_message_session_t*)lws_wsi_user(wsi);
+		if(relay_session == NULL){
+			JANUS_LOG(LOG_ERR, "relay_session lws_wsi_user failed!\n");
+			return 0;
+		}
+		srtc_relay_message_ctx_t *relay_ctx = srtc_get_module_ctx(srtc_rlay_msg_module);
+		if(relay_ctx == NULL){
+			JANUS_LOG(LOG_ERR, "srtc_relay_message_ctx_t srtc_get_module_ctx failed!\n");
+			return 0;
+		}
+		
 		switch(reason) {
 			case LWS_CALLBACK_CLIENT_ESTABLISHED: {
-  			lws_callback_on_writable(wsi);
+  				lws_callback_on_writable(wsi);
 				JANUS_LOG(LOG_VERB, "[%p] WebSocket connectted \n", wsi);
 				break;
 			}
-
+			case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+				JANUS_LOG(LOG_VERB, "[%p] WebSocket connect ERROR \n", wsi);
+				janus_srtc_relay_destroy_session(relay_session->handle, &error);
+				if(signal_server){
+					json_error_t error;
+					json_t *root = json_loads("{\"srtc\":\"event\",\"eventtype\":\"hangup\"}", 0, &error);
+					relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
+				}
+				break;
+			case LWS_CALLBACK_CLOSED:	
+				janus_srtc_relay_destroy_session(relay_session->handle, &error);
+				if(signal_server){
+					json_error_t error;
+					json_t *root = json_loads("{\"srtc\":\"event\",\"eventtype\":\"hangup\"}", 0, &error);
+					relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
+				}				
+				break;
+			case LWS_CALLBACK_WSI_DESTROY: {
+				janus_srtc_relay_destroy_session(relay_session->handle, &error);	
+				if(signal_server){
+					json_error_t error;
+					json_t *root = json_loads("{\"srtc\":\"event\",\"eventtype\":\"hangup\"}", 0, &error);
+					relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
+				}
+				break;
+			}
+				
 			case LWS_CALLBACK_CLIENT_WRITEABLE: {
 				if(relay_session == NULL || relay_session->wsi == NULL){
 					JANUS_LOG(LOG_ERR, "[%p] Invalid WebSocket client instance...\n", wsi);
@@ -137,15 +177,45 @@ static int janus_client_websockets_callback(
 				}
 				break;
 			}
-			case LWS_CALLBACK_RECEIVE: {
+			case LWS_CALLBACK_CLIENT_RECEIVE: {
 				JANUS_LOG(LOG_VERB, "[%p] WebSocket Got %zu bytes: \n", wsi, len);
 				if(!signal_server){
 					//if OK:
-					//结束session
+					int error;
+					janus_srtc_relay_destroy_session(relay_session->handle, &error);
+					return 0;
+				}				
+
+				/* Is this a new message, or part of a fragmented one? */
+				const size_t remaining = lws_remaining_packet_payload(wsi);
+				if(relay_session->incoming == NULL) {
+					JANUS_LOG(LOG_HUGE, "[%p] First fragment: %zu bytes, %zu remaining\n", wsi, len, remaining);
+					relay_session->incoming = g_malloc(len+1);
+					memcpy(relay_session->incoming, in, len);
+					relay_session->incoming[len] = '\0';
+					JANUS_LOG(LOG_INFO, "%s\n", relay_session->incoming);
+				} else {
+					size_t offset = strlen(relay_session->incoming);
+					JANUS_LOG(LOG_HUGE, "[%p] Appending fragment: offset %zu, %zu bytes, %zu remaining\n",  wsi, offset, len, remaining);
+					relay_session->incoming = g_realloc(relay_session->incoming, offset+len+1);
+					memcpy(relay_session->incoming+offset, in, len);
+					relay_session->incoming[offset+len] = '\0';
+					JANUS_LOG(LOG_HUGE, "%s\n", relay_session->incoming+offset);
 				}
-
-
-				return 0;
+				if(remaining > 0 || !lws_is_final_fragment(wsi)) {
+					/* Still waiting for some more fragments */
+					JANUS_LOG(LOG_HUGE, "[%p] Waiting for more fragments\n", wsi);
+					return 0;
+				}
+				JANUS_LOG(LOG_HUGE, "[%p] Done, parsing message: %zu bytes\n", wsi, strlen(relay_session->incoming));
+				/* If we got here, the message is complete: parse the JSON payload */
+				json_error_t error;
+				json_t *root = json_loads(relay_session->incoming, 0, &error);
+				g_free(relay_session->incoming);
+				relay_session->incoming = NULL;
+				/* Notify the core, passing both the object and, since it may be needed, the error */				
+				relay_ctx->gateway->push_event(relay_session->handle, &janus_srtc_plugin, NULL, root, NULL);
+				break;
 			}
 
 		}
@@ -206,7 +276,7 @@ ERROR:
 	}
 }
 
-static int* create_session_and_relay(janus_plugin_session *handle, char *transaction, json_t *root, json_t *relay_server){
+static janus_srtc_session_t* create_session_and_relay(janus_plugin_session *handle, char *transaction, json_t *root, json_t *relay_server){
 	srtc_relay_message_session_t* session;
 
 	char *server_text = json_dumps(relay_server, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
@@ -221,7 +291,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	session = janus_srtc_relay_create_session(relay_server_ip_text, relay_server_port_text, 0);
 	if(session == NULL){
 		JANUS_LOG(LOG_ERR, "ctx janus_srtc_relay_create_csession create failed!\n");
-		return -1;
+		return NULL;
 	}
 	srtc_session->mod_srtc_sessions[srtc_rlay_msg_module.srtc_module_index] = session;
 	/* Convert to string and enqueue */
@@ -231,7 +301,7 @@ static int* create_session_and_relay(janus_plugin_session *handle, char *transac
 	JANUS_LOG(LOG_INFO, "#####relay###WebSockets send message %s\n", payload);
 	g_async_queue_push(session->messages, payload);
 	lws_callback_on_writable(session->wsi);
-	return 0;
+	return session;
 }
 
 
@@ -243,6 +313,7 @@ static int
 		JANUS_LOG(LOG_ERR, "srtc_rlay_msg_module ctx not create!\n");
 		return srtc_handle_call_next(handle, root, v);
 	}
+	srtc_relay_message_session_t* session = NULL;
 	json_t *message = json_object_get(root, "srtc");
 	const gchar *message_text = json_string_value(message);
 	if(handle->srtc_type == SERVER_B){
@@ -253,15 +324,17 @@ static int
 		v->jsep = relay_ctx->gateway->plugin_handle_peer_sdp(handle, v->jsep, FALSE);
 		json_object_set_new(root, "jsep", v->jsep);
 		if(relay_server){
-			create_session_and_relay(handle,v->transaction, root, relay_server);
+			session = create_session_and_relay(handle,v->transaction, root, relay_server);
 		}
 		handle->srtc_type == SERVER_B;
 	}else if(handle->srtc_type == SERVER_A){//创建session and创建websocket	，查找数据库找到callee IP+port进行relay，callback 发送给handle中的session
 		json_t *media_server = json_object_get(root, "media");
 		if(media_server){
-			create_session_and_relay(handle,v->transaction, root, media_server);
+			session = create_session_and_relay(handle,v->transaction, root, media_server);
 		}
 	}
+	session->callee_name = g_strdup(v->callee_name);
+	session->caller_name = g_strdup(v->caller_name);
 	return srtc_handle_call_next(handle, root, v);
 }
 static int
@@ -297,28 +370,28 @@ static char *janus_websockets_get_interface_name(const char *ip) {
 	if(getifaddrs(&addrs) == -1)
 		return NULL;
 	for(iap = addrs; iap != NULL; iap = iap->ifa_next) {
-			if(iap->ifa_addr && (iap->ifa_flags & IFF_UP)) {
-						if(iap->ifa_addr->sa_family == AF_INET) {
-										struct sockaddr_in *sa = (struct sockaddr_in *)(iap->ifa_addr);
-										char buffer[16];
-										inet_ntop(iap->ifa_addr->sa_family, (void *)&(sa->sin_addr), buffer, sizeof(buffer));
-										if(!strcmp(ip, buffer)) {
-															char *iface = g_strdup(iap->ifa_name);
-															freeifaddrs(addrs);
-															return iface;
-														}
-									} else if(iap->ifa_addr->sa_family == AF_INET6) {
-													struct sockaddr_in6 *sa = (struct sockaddr_in6 *)(iap->ifa_addr);
-													char buffer[48];
-													inet_ntop(iap->ifa_addr->sa_family, (void *)&(sa->sin6_addr), buffer, sizeof(buffer));
-													if(!strcmp(ip, buffer)) {
-																		char *iface = g_strdup(iap->ifa_name);
-																		freeifaddrs(addrs);
-																		return iface;
-																	}
-												}
-					}
+		if(iap->ifa_addr && (iap->ifa_flags & IFF_UP)) {
+			if(iap->ifa_addr->sa_family == AF_INET) {
+				struct sockaddr_in *sa = (struct sockaddr_in *)(iap->ifa_addr);
+				char buffer[16];
+				inet_ntop(iap->ifa_addr->sa_family, (void *)&(sa->sin_addr), buffer, sizeof(buffer));
+				if(!strcmp(ip, buffer)) {
+					char *iface = g_strdup(iap->ifa_name);
+					freeifaddrs(addrs);
+					return iface;
+				}
+			} else if(iap->ifa_addr->sa_family == AF_INET6) {
+				struct sockaddr_in6 *sa = (struct sockaddr_in6 *)(iap->ifa_addr);
+				char buffer[48];
+				inet_ntop(iap->ifa_addr->sa_family, (void *)&(sa->sin6_addr), buffer, sizeof(buffer));
+				if(!strcmp(ip, buffer)) {
+					char *iface = g_strdup(iap->ifa_name);
+					freeifaddrs(addrs);
+					return iface;
+				}
+			}
 		}
+	}
 	freeifaddrs(addrs);
 	return NULL;
 }
@@ -530,6 +603,40 @@ int janus_srtc_relay_handle_relay(janus_plugin_session *handle, char *transactio
 	return srtc_handle_message_next(handle, transaction, message, jsep);
 }
 
+void janus_srtc_relay_destroy_session(janus_plugin_session *handle, int *error){
+	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));
+	if(relay_ctx == 0){
+		if(relay_ctx == NULL){
+			JANUS_LOG(LOG_ERR, "srtc_relay_message_ctx_t malloc failed!\n");
+			return srtc_destroy_session_next(handle, error);
+		}
+	}
+	srtc_relay_message_session_t *relay_session = srtc_get_module_session(handle, srtc_rlay_msg_module);
+	if(relay_session == NULL){
+		return srtc_destroy_session_next(handle, error);
+	}
+
+	/* Cleanup */
+	JANUS_LOG(LOG_INFO, "[%p] Destroying WebSocket client\n", wsi);
+	relay_session->wsi = NULL;
+	/* Remove messages queue too, if needed */
+	if(relay_session->messages != NULL) {
+		char *response = NULL;
+		while((response = g_async_queue_try_pop(relay_session->messages)) != NULL) {
+			g_free(response);
+		}
+		g_async_queue_unref(relay_session->messages);
+	}
+	/* ... and the shared buffers */	
+	g_free(relay_session->incoming);
+	relay_session->incoming = NULL;
+	g_free(relay_session->buffer);
+	relay_session->buffer = NULL;
+	relay_session->buflen = 0;
+	relay_session->bufpending = 0;
+	relay_session->bufoffset = 0;
+	return srtc_destroy_session_next(handle, error);
+}
 
 void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *config_path){
 
@@ -544,6 +651,8 @@ void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *
 
 	srtc_handle_message_next = srtc_handle_message;
 	srtc_handle_message = janus_srtc_relay_handle_relay;
+	srtc_destroy_session_next = srtc_destroy_session;
+	srtc_destroy_session =janus_srtc_relay_destroy_session;
 
 	srtc_relay_message_ctx_t *relay_ctx = (srtc_relay_message_ctx_t*)g_malloc(sizeof(srtc_relay_message_ctx_t));
 	if(relay_ctx == 0){

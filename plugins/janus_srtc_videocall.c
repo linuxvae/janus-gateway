@@ -14,6 +14,7 @@ srtc_incoming_rtp_pt          srtc_incoming_rtp_next;
 srtc_incoming_rtcp_pt          srtc_incoming_rtcp_next;
 srtc_incoming_data_pt          srtc_incoming_data_next;
 static srtc_handle_message_pt          srtc_handle_message_next;
+static srtc_destroy_session_pt 			srtc_destroy_session_next;
 
 
 
@@ -574,6 +575,11 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 	return srtc_handle_message_next(handle, transaction, message, jsep);
 }
 
+void janus_srtc_video_call_destroy_session(janus_plugin_session *handle, int *error){
+	
+	return 0;
+}
+
 void* janus_srtc_video_call_create_plugin(janus_callbacks *callback, const char *config_path){
 	srtc_handle_call_next = srtc_handle_call;
 	srtc_handle_call = janus_srtc_video_call_handle_call;
@@ -589,6 +595,8 @@ void* janus_srtc_video_call_create_plugin(janus_callbacks *callback, const char 
 	srtc_incoming_data = janus_srtc_video_call_incoming_data;
 	srtc_handle_message_next = srtc_handle_message;
 	srtc_handle_message = janus_srtc_video_call_handle_message;
+	srtc_destroy_session_next = srtc_destroy_session;
+	srtc_destroy_session =janus_srtc_video_call_destroy_session;
 	srtc_video_call_ctx_t *ctx =(srtc_video_call_ctx_t*)g_malloc(sizeof(srtc_video_call_ctx_t));
 	memset(ctx, 0,sizeof(srtc_video_call_ctx_t));
 	ctx->gateway = callback;

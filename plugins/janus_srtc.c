@@ -14,13 +14,14 @@ srtc_handle_call_pt          srtc_handle_call;
 srtc_handle_accept_pt          srtc_handle_accept;
 srtc_handle_hangup_pt          srtc_handle_hangup;
 srtc_handle_message_pt          srtc_handle_message;
+srtc_destroy_session_pt          srtc_destroy_session;
+
 
 srtc_create_session_pt       srtc_create_session;
 srtc_incoming_rtp_pt    srtc_incoming_rtp;
 srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
 srtc_incoming_data_pt srtc_incoming_data;
 srtc_hangup_media_pt    srtc_hangup_media;
-srtc_destroy_session_pt          srtc_destroy_session;
 srtc_init_pt							srtc_init;
 srtc_destroy_pt						srtc_destroy;
 
@@ -409,11 +410,9 @@ void janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 		return;
 	}
 	janus_refcount_decrease(&session->handle->ref);
-//janus_videocall_hangup_media(handle);
+	//janus_videocall_hangup_media(handle);
 	return;
 
-
-	return ;
 }
 json_t *janus_srtc_query_session(janus_plugin_session *handle){
 	return NULL;
@@ -442,6 +441,9 @@ static int
 {
 	return 0;
 }
+void janus_srtc_core_destroy_session(janus_plugin_session *handle, int *error){
+	return 0;
+}
 
 static int
 	janus_srtc_core_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
@@ -466,6 +468,7 @@ void* janus_srtc_core_create_plugin(janus_callbacks *callback, const char *confi
 	srtc_incoming_rtp = janus_srtc_core_incoming_rtp;
 	srtc_incoming_rtcp = janus_srtc_core_incoming_rtcp;
 	srtc_handle_message = janus_srtc_core_message;
+	srtc_destroy_session =janus_srtc_core_destroy_session;
 	srtc_core_ctx_t *ctx =(srtc_core_ctx_t*)g_malloc(sizeof(srtc_core_ctx_t));
 	return ctx;
 }
