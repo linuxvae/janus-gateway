@@ -584,7 +584,7 @@ int janus_srtc_relay_handle_relay(janus_plugin_session *handle, char *transactio
 			return srtc_handle_message_next(handle, transaction, message, jsep);
 		}
 	}
-	if(handle->srtc_type == SERVER_A){
+	if(handle->srtc_type == SERVER_A|| handle->srtc_type == SERVER_C){
 		if(!strcasecmp(root_text, "trickle")){
 			char *payload = json_dumps(message, json_format);
 			JANUS_LOG(LOG_WARN, "relay_message %s\n", payload);
