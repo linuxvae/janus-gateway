@@ -254,6 +254,7 @@ static srtc_relay_message_session_t* janus_srtc_relay_create_session(char *ipadd
 	session->i.pwsi = &session->wsi;
 	session->i.userdata = session;
 
+	session->incoming = NULL;
 	session->buffer = NULL;
 	session->buflen = 0;
 	session->bufpending = 0;
