@@ -865,11 +865,11 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 
 	if(handle == NULL) {
 		/* Query is an handle-level command */
-		ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
+		ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 		goto jsondone;
 	}
 	if(handle->app == NULL || handle->app_handle == NULL) {
-		ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this message");
+		ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this message");
 		goto jsondone;
 	}
 	janus_plugin *plugin_t = (janus_plugin *)handle->app;
@@ -878,7 +878,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		error_code, error_cause, FALSE,
 		JANUS_ERROR_MISSING_MANDATORY_ELEMENT, JANUS_ERROR_INVALID_ELEMENT_TYPE);
 	if(error_code != 0) {
-		ret = janus_process_srtc_error_string(request, message, session_id, transaction_text, error_code, error_cause);
+		ret = janus_process_srtc_error_string(request, message_text, session_id, transaction_text, error_code, error_cause);
 		goto jsondone;
 	}
 	json_t *body = json_object_get(root, "body");
@@ -889,7 +889,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 	gboolean renegotiation = FALSE;
 	if(jsep != NULL) {
 		if(!json_is_object(jsep)) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_INVALID_JSON_OBJECT, "Invalid jsep object");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_JSON_OBJECT, "Invalid jsep object");
 			goto jsondone;
 		}
 		JANUS_VALIDATE_JSON_OBJECT_FORMAT("JSEP error: missing mandatory element (%s)",
@@ -897,7 +897,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 			jsep, jsep_parameters, error_code, error_cause, FALSE,
 			JANUS_ERROR_MISSING_MANDATORY_ELEMENT, JANUS_ERROR_INVALID_ELEMENT_TYPE);
 		if(error_code != 0) {
-			ret = janus_process_srtc_error_string(request, message, session_id, transaction_text, error_code, error_cause);
+			ret = janus_process_srtc_error_string(request, message_text, session_id, transaction_text, error_code, error_cause);
 			goto jsondone;
 		}
 		json_t *type = json_object_get(jsep, "type");
@@ -915,7 +915,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 				waited += 100000;
 				if(waited >= 3*G_USEC_PER_SEC) {
 					JANUS_LOG(LOG_VERB, "[%"SCNu64"]   -- Waited 3 seconds, that's enough!\n", handle->handle_id);
-					ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_WEBRTC_STATE, "Still cleaning a previous session");
+					ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_WEBRTC_STATE, "Still cleaning a previous session");
 					goto jsondone;
 				}
 			}
@@ -933,7 +933,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 			offer = 0;
 		} else {
 			/* TODO Handle other message types as well */
-			ret = janus_process_srtc_error(request, message,  session_id, transaction_text, JANUS_ERROR_JSEP_UNKNOWN_TYPE, "JSEP error: unknown message type '%s'", jsep_type);
+			ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_JSEP_UNKNOWN_TYPE, "JSEP error: unknown message type '%s'", jsep_type);
 			g_free(jsep_type);
 			janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
 			janus_mutex_unlock(&handle->mutex);
@@ -948,7 +948,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		janus_sdp *parsed_sdp = janus_sdp_preparse(handle, jsep_sdp, error_str, sizeof(error_str), &audio, &video, &data);
 		if(parsed_sdp == NULL) {
 			/* Invalid SDP */
-			ret = janus_process_srtc_error_string(request, message, session_id, transaction_text, JANUS_ERROR_JSEP_INVALID_SDP, error_str);
+			ret = janus_process_srtc_error_string(request, message_text, session_id, transaction_text, JANUS_ERROR_JSEP_INVALID_SDP, error_str);
 			g_free(jsep_type);
 			janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
 			janus_mutex_unlock(&handle->mutex);
@@ -990,7 +990,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 					janus_sdp_destroy(parsed_sdp);
 					g_free(jsep_type);
 					janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
-					ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Error setting ICE locally");
+					ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Error setting ICE locally");
 					janus_mutex_unlock(&handle->mutex);
 					goto jsondone;
 				}
@@ -1001,7 +1001,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 					janus_sdp_destroy(parsed_sdp);
 					g_free(jsep_type);
 					janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
-					ret = janus_process_srtc_error(request, message,  session_id, transaction_text, JANUS_ERROR_UNEXPECTED_ANSWER, "Unexpected ANSWER (did we offer?)");
+					ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_UNEXPECTED_ANSWER, "Unexpected ANSWER (did we offer?)");
 					janus_mutex_unlock(&handle->mutex);
 					goto jsondone;
 				}
@@ -1011,7 +1011,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 				janus_sdp_destroy(parsed_sdp);
 				g_free(jsep_type);
 				janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
-				ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_JSEP_INVALID_SDP, "Error processing SDP");
+				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_JSEP_INVALID_SDP, "Error processing SDP");
 				janus_mutex_unlock(&handle->mutex);
 				goto jsondone;
 			}
@@ -1038,7 +1038,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 				janus_sdp_destroy(parsed_sdp);
 				g_free(jsep_type);
 				janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
-				ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNEXPECTED_ANSWER, "Error processing SDP");
+				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNEXPECTED_ANSWER, "Error processing SDP");
 				janus_mutex_unlock(&handle->mutex);
 				goto jsondone;
 			}
@@ -1083,7 +1083,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		/* Anonymize SDP */
 		if(janus_sdp_anonymize(parsed_sdp) < 0) {
 			/* Invalid SDP */
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_JSEP_INVALID_SDP, "JSEP error: invalid SDP");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_JSEP_INVALID_SDP, "JSEP error: invalid SDP");
 			janus_sdp_destroy(parsed_sdp);
 			g_free(jsep_type);
 			janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
@@ -1097,7 +1097,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 
 	/* Make sure the app handle is still valid */
 	if(handle->app == NULL || !janus_plugin_session_is_alive(handle->app_handle)) {
-		ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this message");
+		ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this message");
 		g_free(jsep_type);
 		g_free(jsep_sdp_stripped);
 		janus_flags_clear(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_PROCESSING_OFFER);
@@ -1130,14 +1130,14 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 	g_free(jsep_sdp_stripped);
 	if(result == NULL) {
 		/* Something went horribly wrong! */
-		ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
+		ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
 		goto jsondone;
 	}
 	if(result->type == JANUS_PLUGIN_OK) {
 		/* The plugin gave a result already (synchronous request/response) */
 		if(result->content == NULL || !json_is_object(result->content)) {
 			/* Missing content, or not a JSON object */
-			ret = janus_process_srtc_error(request, message,  session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
+			ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
 				result->content == NULL ?
 					"Plugin didn't provide any content for this synchronous response" :
 					"Plugin returned an invalid JSON response");
@@ -1148,7 +1148,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		json_incref(result->content);
 		/* Prepare JSON response */
 		//json_t *reply = janus_create_srtc_message("success", session->session_id, transaction_text);
-		json_t *reply = janus_create_srtc_response_message("response", message, 183, session_id, transaction_text);
+		json_t *reply = janus_create_srtc_response_message("response", message_text, 183, session_id, transaction_text);
 		json_object_set_new(reply, "sender", json_integer(handle->handle_id));
 		json_t *plugin_data = json_object();
 		json_object_set_new(plugin_data, "plugin", json_string(plugin_t->get_package()));
@@ -1159,14 +1159,14 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 	} else if(result->type == JANUS_PLUGIN_OK_WAIT) {
 		/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
 		//json_t *reply = janus_create_srtc_message("ack", session_id, transaction_text);
-		json_t *reply = janus_create_srtc_response_message("response", message, 183, session_id, transaction_text);
+		json_t *reply = janus_create_srtc_response_message("response", message_text, 183, session_id, transaction_text);
 		if(result->text)
 			json_object_set_new(reply, "errormesg", json_string(result->text));
 		/* Send the success reply */
 		ret = janus_process_success(request, reply);
 	} else {
 		/* Something went horribly wrong! */
-		ret = janus_process_srtc_error_string(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
+		ret = janus_process_srtc_error_string(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
 			(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
 
 		janus_plugin_result_destroy(result);
@@ -1266,7 +1266,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	const gchar *plugin_text = "janus.plugin.srtc";
 	janus_plugin *plugin_t = janus_plugin_find(plugin_text);
 	if(plugin_t == NULL) {
-		ret = janus_process_srtc_error(request, message,  session_id, transaction_text, JANUS_ERROR_PLUGIN_NOT_FOUND, "No such plugin '%s'", plugin_text);
+		ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_PLUGIN_NOT_FOUND, "No such plugin '%s'", plugin_text);
 		goto srtcdone;
 	}
 	//三种情况需要创建session和handle
@@ -1275,7 +1275,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		(!signal_server && !strcasecmp(message_text, "call"))))){
 		session = janus_session_create_srtc(session_id, username_text);
 		if(session == NULL) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
 		session_id = session->session_id;
@@ -1302,7 +1302,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 //		handle = janus_ice_handle_create(session, opaque_id);
 		handle = janus_ice_handle_create(session, NULL);
 		if(handle == NULL) {
-			ret = janus_process_srtc_error(request, message,  session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
 		handle_id = handle->handle_id;
@@ -1315,7 +1315,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			/* TODO Make error struct to pass verbose information */
 			janus_session_handles_remove(session, handle);
 			JANUS_LOG(LOG_ERR, "Couldn't attach to plugin '%s', error '%d'\n", plugin_text, error);
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
 			goto srtcdone;
 		}
 	}
@@ -1327,12 +1327,12 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		//创建对方的session和handle
 		session->peer_session = janus_session_create_srtc(0, calleeusername_text);
 		if(session == NULL) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
 		session->peer_handle = janus_ice_handle_create(session->peer_session, NULL);
 		if(handle == NULL) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
 		session->peer_session->ice_handle_id = session->peer_handle->handle_id;
@@ -1342,7 +1342,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			/* TODO Make error struct to pass verbose information */
 			janus_session_handles_remove(session, handle);
 			JANUS_LOG(LOG_ERR, "Couldn't attach to plugin '%s', error '%d'\n", plugin_text, error);
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_ATTACH, "Couldn't attach to plugin: error '%d'", error);
 			goto srtcdone;
 		}
 
@@ -1354,13 +1354,13 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		const gchar *callerusername_text = json_string_value(callerusername);
 		peer_session = janus_session_find_by_username(callerusername_text);
 		if(peer_session == NULL){
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
 			goto srtcdone;
 		}
 		session = peer_session->peer_session;
 		handle  = peer_session->peer_handle;
 		if(session == NULL || handle == NULL){
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
 			goto srtcdone;
 		}
 		peer_session->peer_handle = NULL;
@@ -1397,7 +1397,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	}
 	if(!handle) {
 		JANUS_LOG(LOG_ERR, "Couldn't find any handle %"SCNu64" in session %"SCNu64"...\n", handle_id, session_id);
-		ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
+		ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_HANDLE_NOT_FOUND, "No such handle %"SCNu64" in session %"SCNu64"", handle_id, session_id);
 		goto srtcdone;
 	}
 
@@ -1408,7 +1408,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		if(!strcasecmp(message_text, "unregister")){
 			if(handle != NULL) {
 				/* Query is a session-level command */
-				ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
+				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 				goto srtcdone;
 			}
 			janus_mutex_lock(&sessions_mutex);
@@ -1425,7 +1425,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			/* Prepare JSON reply */
 			//json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
 			//json_t *reply = janus_create_srtc_response_message("success", session_id, transaction_text);
-			json_t *reply = janus_create_srtc_response_message("response", message, 200, session_id, transaction_text);
+			json_t *reply = janus_create_srtc_response_message("response", message_text, 200, session_id, transaction_text);
 			/* Send the success reply */
 			ret = janus_process_success(request, reply);
 			/* Notify event handlers as well */
@@ -1437,24 +1437,24 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 						g_strdup((char *)transaction_text), root, NULL);
 			if(result == NULL) {
 				/* Something went horribly wrong! */
-				ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
+				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
 				goto srtcdone;
 			}
 			if(result->type == JANUS_PLUGIN_OK) {
 				/* Prepare JSON reply */
-				json_t *reply = janus_create_srtc_response_message("response-signal", message, 200, session_id, transaction_text);
+				json_t *reply = janus_create_srtc_response_message("response-signal", message_text, 200, session_id, transaction_text);
 				/* Send the success reply */
 				ret = janus_process_success(request, reply);
 			}else if(result->type == JANUS_PLUGIN_OK_WAIT) {
 				/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
-				json_t *reply = janus_create_srtc_response_message("response-signal", message, 183, session_id, transaction_text);
+				json_t *reply = janus_create_srtc_response_message("response-signal", message_text, 183, session_id, transaction_text);
 				if(result->text)
 					json_object_set_new(reply, "erromsg", json_string(result->text));
 				/* Send the success reply */
 				ret = janus_process_success(request, reply);
 			} else {
 				/* Something went horribly wrong! */
-				ret = janus_process_srtc_error_string(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
+				ret = janus_process_srtc_error_string(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
 					(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
 				janus_plugin_result_destroy(result);
 			}
@@ -1482,27 +1482,27 @@ Media_Server:
 	else if(!strcasecmp(message_text, "trickle")){
 		if(handle == NULL) {
 			/* Trickle is an handle-level command */
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 			goto srtcdone;
 		}
 		if(handle->app == NULL || !janus_plugin_session_is_alive(handle->app_handle)) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this trickle candidate");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "No plugin to handle this trickle candidate");
 			goto srtcdone;
 		}
 		json_t *body = json_object_get(root, "body");
 		json_t *candidate = json_object_get(body, "candidate");
 		json_t *candidates = json_object_get(body, "candidates");
 		if(candidate == NULL && candidates == NULL) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_MISSING_MANDATORY_ELEMENT, "Missing mandatory element (candidate|candidates)");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_MISSING_MANDATORY_ELEMENT, "Missing mandatory element (candidate|candidates)");
 			goto srtcdone;
 		}
 		if(candidate != NULL && candidates != NULL) {
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_INVALID_JSON, "Can't have both candidate and candidates");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_JSON, "Can't have both candidate and candidates");
 			goto srtcdone;
 		}
 		if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_CLEANING)) {
 			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Received a trickle, but still cleaning a previous session\n", handle->handle_id);
-			ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_WEBRTC_STATE, "Still cleaning a previous session");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_WEBRTC_STATE, "Still cleaning a previous session");
 			goto srtcdone;
 		}
 		janus_mutex_lock(&handle->mutex);
@@ -1544,14 +1544,14 @@ Media_Server:
 			int error = 0;
 			const char *error_string = NULL;
 			if((error = janus_ice_trickle_parse(handle, candidate, &error_string)) != 0) {
-				ret = janus_process_srtc_error(request, message, session_id, transaction_text, error, "%s", error_string);
+				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, error, "%s", error_string);
 				janus_mutex_unlock(&handle->mutex);
 				goto srtcdone;
 			}
 		} else {
 			/* We got multiple candidates in an array */
 			if(!json_is_array(candidates)) {
-				ret = janus_process_srtc_error(request, message, session_id, transaction_text, JANUS_ERROR_INVALID_ELEMENT_TYPE, "candidates is not an array");
+				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_ELEMENT_TYPE, "candidates is not an array");
 				janus_mutex_unlock(&handle->mutex);
 				goto srtcdone;
 			}
