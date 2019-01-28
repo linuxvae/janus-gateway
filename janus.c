@@ -1168,7 +1168,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		/* Something went horribly wrong! */
 		ret = janus_process_srtc_error_string(request, message, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
 			(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
-		
+
 		janus_plugin_result_destroy(result);
 		goto jsondone;
 	}
@@ -1225,7 +1225,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		error_code, error_cause, FALSE,
 		JANUS_ERROR_MISSING_MANDATORY_ELEMENT, JANUS_ERROR_INVALID_ELEMENT_TYPE);
 	if(error_code != 0) {
-		ret = janus_process_srtc_error_string(request, message,session_id, NULL, error_code, error_cause);
+		ret = janus_process_srtc_error_string(request, "unknown",session_id, NULL, error_code, error_cause);
 		goto srtcdone;
 	}
 	json_t *transaction = json_object_get(root, "transaction");
