@@ -316,6 +316,7 @@ static int
 	}
 	srtc_relay_message_session_t* session = NULL;
 	json_t *message = json_object_get(root, "srtc");
+	json_t *body = json_object_get(root, "body");
 	const gchar *message_text = json_string_value(message);
 	if(handle->srtc_type == SERVER_B){
 		json_t *relay_server = json_object_get(root, "relay");
@@ -323,7 +324,7 @@ static int
 		json_object_set_new(root, "srtc", json_string("event"));
 
 		v->jsep = relay_ctx->gateway->plugin_handle_peer_sdp(handle, v->jsep, FALSE);
-		json_object_set_new(root, "jsep", v->jsep);
+		json_object_set_new(body, "jsep", v->jsep);
 		if(relay_server){
 			session = create_session_and_relay(handle,v->transaction, root, relay_server);
 		}
