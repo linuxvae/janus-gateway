@@ -208,6 +208,20 @@ static json_t *janus_create_srtc_message(const char *status, uint64_t session_id
 		json_object_set_new(msg, "transaction", json_string(transaction));
 	return msg;
 }
+static json_t *janus_create_srtc_response_message
+	(const char *status, const char *responsetype, uint64_t responsecode, uint64_t session_id, const char *transaction) {
+	json_t *msg = json_object();
+	json_object_set_new(msg, "srtc", json_string(status));
+	if(session_id > 0)
+		json_object_set_new(msg, "session_id", json_integer(session_id));
+	if(transaction != NULL)
+		json_object_set_new(msg, "transaction", json_string(transaction));
+	if(responsetype != NULL)
+		json_object_set_new(msg, "responsetype", json_string(responsetype));
+	json_object_set_new(msg, "responsecode", json_integer(responsecode));
+	return msg;
+}
+
 
 
 /* The default timeout for sessions is 60 seconds: this means that, if
@@ -1133,7 +1147,8 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		/* Reference the content, as destroying the result instance will decref it */
 		json_incref(result->content);
 		/* Prepare JSON response */
-		json_t *reply = janus_create_srtc_message("success", session->session_id, transaction_text);
+		//json_t *reply = janus_create_srtc_message("success", session->session_id, transaction_text);
+		json_t *reply = janus_create_srtc_response_message("response","call", 183, session_id, transaction_text);
 		json_object_set_new(reply, "sender", json_integer(handle->handle_id));
 		json_t *plugin_data = json_object();
 		json_object_set_new(plugin_data, "plugin", json_string(plugin_t->get_package()));
@@ -1143,15 +1158,17 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		ret = janus_process_success(request, reply);
 	} else if(result->type == JANUS_PLUGIN_OK_WAIT) {
 		/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
-		json_t *reply = janus_create_srtc_message("ack", session_id, transaction_text);
+		//json_t *reply = janus_create_srtc_message("ack", session_id, transaction_text);
+		json_t *reply = janus_create_srtc_response_message("response","call", 183, session_id, transaction_text);
 		if(result->text)
-			json_object_set_new(reply, "hint", json_string(result->text));
+			json_object_set_new(reply, "errormesg", json_string(result->text));
 		/* Send the success reply */
 		ret = janus_process_success(request, reply);
 	} else {
 		/* Something went horribly wrong! */
 		ret = janus_process_srtc_error_string(request, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE,
 			(char *)(result->text ? result->text : "Plugin returned a severe (unknown) error"));
+		
 		janus_plugin_result_destroy(result);
 		goto jsondone;
 	}
@@ -1423,14 +1440,14 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			}
 			if(result->type == JANUS_PLUGIN_OK) {
 				/* Prepare JSON reply */
-				json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
+				json_t *reply = janus_create_srtc_response_message("response-signal","call", 200, session_id, transaction_text);
 				/* Send the success reply */
 				ret = janus_process_success(request, reply);
 			}else if(result->type == JANUS_PLUGIN_OK_WAIT) {
 				/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
-				json_t *reply = janus_create_srtc_message("processing", session_id, transaction_text);
+				json_t *reply = janus_create_srtc_response_message("response-signal","call", 183, session_id, transaction_text);
 				if(result->text)
-					json_object_set_new(reply, "hint", json_string(result->text));
+					json_object_set_new(reply, "erromsg", json_string(result->text));
 				/* Send the success reply */
 				ret = janus_process_success(request, reply);
 			} else {
