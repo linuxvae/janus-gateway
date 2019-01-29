@@ -49,6 +49,7 @@ typedef struct janus_session {
 	guint64 session_id;
 	/*! \brief Janus Core-Client username */
 	gchar 	*username;
+	gchar 	*peer_username;
 	janus_session *peer_session;
 	janus_ice_handle *peer_handle;
 

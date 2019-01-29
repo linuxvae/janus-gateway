@@ -510,6 +510,8 @@ static void janus_session_free(const janus_refcount *session_ref) {
 	g_hash_table_remove(name_sessions, session->username); //函数调用不要锁两次
 	janus_mutex_unlock(&sessions_mutex);
 
+	if(session->peer_username)
+		g_free(session->peer_username);
 	if(session->username)
 		g_free(session->username);
 	g_free(session);
@@ -1148,7 +1150,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 		json_incref(result->content);
 		/* Prepare JSON response */
 		//json_t *reply = janus_create_srtc_message("success", session->session_id, transaction_text);
-		json_t *reply = janus_create_srtc_response_message("response", message_text, 183, session_id, transaction_text);
+		json_t *reply = janus_create_srtc_response_message("response", message_text, 180, session_id, transaction_text);
 		json_object_set_new(reply, "sender", json_integer(handle->handle_id));
 		json_t *plugin_data = json_object();
 		json_object_set_new(plugin_data, "plugin", json_string(plugin_t->get_package()));
@@ -1159,7 +1161,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 	} else if(result->type == JANUS_PLUGIN_OK_WAIT) {
 		/* The plugin received the request but didn't process it yet, send an ack (asynchronous notifications may follow) */
 		//json_t *reply = janus_create_srtc_message("ack", session_id, transaction_text);
-		json_t *reply = janus_create_srtc_response_message("response", message_text, 183, session_id, transaction_text);
+		json_t *reply = janus_create_srtc_response_message("response", message_text, 180, session_id, transaction_text);
 		if(result->text)
 			json_object_set_new(reply, "errormesg", json_string(result->text));
 		/* Send the success reply */
@@ -1212,9 +1214,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		handle_id = json_integer_value(h);
 
 	janus_session *session = NULL;
-	janus_ice_handle *handle = NULL;
-	janus_session * peer_session = NULL;
-	janus_ice_handle *peer_handle = NULL;
+	janus_ice_handle *handle = NULL;	
 	int server_type = -1;
 
 	char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
@@ -1297,10 +1297,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			json_object_set_new(transport, "id", json_string(id));
 			janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "created", transport);
 		}
-//		json_t *opaque = json_object_get(root, "opaque_id");
-//		const char *opaque_id = opaque ? json_string_value(opaque) : NULL;
-		/* Create handle */
-//		handle = janus_ice_handle_create(session, opaque_id);
 		handle = janus_ice_handle_create(session, NULL);
 		if(handle == NULL) {
 			ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
@@ -1337,6 +1333,8 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			goto srtcdone;
 		}
 		session->peer_session->ice_handle_id = session->peer_handle->handle_id;
+		session->peer_username = g_strdup(calleeusername_text);
+		session->peer_session->peer_username = g_strdup(session->username);
 		/* Attach to the plugin */
 		int error = 0;
 		if((error = janus_ice_handle_attach_plugin(session->peer_session, session->peer_handle, plugin_t)) != 0) {
@@ -1405,6 +1403,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	if(handle->app_handle->srtc_type == -1){
 		handle->app_handle->srtc_type = server_type;
 	}
+SINGAL_SERVER:
 	if(signal_server == TRUE){
 		if(!strcasecmp(message_text, "unregister")){
 			if(handle != NULL) {
@@ -1424,8 +1423,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			//调用handle clear -》remove handle-》janus_ice_handle_destroy-》 push janus_ice_detach_handle-》plugin->destroy_session 插件删除
 
 			/* Prepare JSON reply */
-			//json_t *reply = janus_create_srtc_message("success", session_id, transaction_text);
-			//json_t *reply = janus_create_srtc_response_message("success", session_id, transaction_text);
 			json_t *reply = janus_create_srtc_response_message("response", message_text, 200, session_id, transaction_text);
 			/* Send the success reply */
 			ret = janus_process_success(request, reply);
@@ -1463,9 +1460,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		goto srtcdone;
 	}
 
-
-
-
 Media_Server:
 	//deal media server
 	//find session by user name
@@ -1478,7 +1472,48 @@ Media_Server:
 	}else if(!strcasecmp(message_text, "call") ||!strcasecmp(message_text, "accept")){
 			janus_deal_webrtc_message(session, handle, request, transaction_text);
 	}else if(!strcasecmp(message_text, "hangup")){//删除session和handle
+		if(handle != NULL) {
+			/* Query is a session-level command */
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
+			goto srtcdone;
+		}
+		janus_session * peer_session = janus_session_find_by_username(session->peer_username);
+		janus_mutex_lock(&sessions_mutex);
+		g_hash_table_remove(sessions, &session->session_id);
+		janus_mutex_unlock(&sessions_mutex);
+		/* Notify the source that the session has been destroyed */
+		if(session->source && session->source->transport) {
+			session->source->transport->session_over(session->source->instance, session->session_id, FALSE, FALSE);
+		}
+		/* Schedule the session for deletion */
+		janus_session_destroy(session);
+		//调用handle clear -》remove handle-》janus_ice_handle_destroy-》 push janus_ice_detach_handle-》plugin->destroy_session 插件删除
 
+		if(peer_session != NULL){
+			json_t *reply = janus_create_srtc_message("event", session_id, transaction_text);
+			json_object_set_new(reply, "eventtype", json_string("hangup"))
+
+			/* Send the hangup to peer */
+			janus_session_notify_event(peer_session, reply);
+
+			janus_mutex_lock(&sessions_mutex);
+			g_hash_table_remove(sessions, &peer_session->session_id);
+			janus_mutex_unlock(&sessions_mutex);
+			
+			/* Notify the source that the session has been destroyed */			
+			if(peer_session->source && peer_session->source->transport) {
+				peer_session->source->transport->session_over(peer_session->source->instance, peer_session->session_id, FALSE, FALSE);
+			}
+			/* Schedule the session for deletion */
+			janus_session_destroy(peer_session);
+		}
+		
+		json_t *reply = janus_create_srtc_response_message("response", message_text, 200, session_id, transaction_text);
+		/* Send the success reply */
+		ret = janus_process_success(request, reply);
+		/* Notify event handlers as well */
+		if(janus_events_is_enabled())
+			janus_events_notify_handlers(JANUS_EVENT_TYPE_SESSION, session_id, "destroyed", NULL);
 	}
 	else if(!strcasecmp(message_text, "trickle")){
 		if(handle == NULL) {

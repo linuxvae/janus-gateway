@@ -358,11 +358,13 @@ static int
 	if(session == NULL){
 		return srtc_handle_hangup_next(handle, root, v);
 	}
-	//stoping =1 删session
+	
 	if(signal_server){//A/C通过websicket 发送
 		char *payload = json_dumps(root, json_format);
 		g_async_queue_push(session->messages, payload);
 		lws_callback_on_writable(session->wsi);
+	}else{
+		//stoping =1 删session
 	}
 	return srtc_handle_hangup_next(handle, root, v);
 }
