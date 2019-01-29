@@ -338,8 +338,8 @@ int janus_srtc_handle_accept_init(janus_plugin_session *handle, char *transactio
 	v.jsep = json_object_get(body, "jsep");
 	json_t *callee_name = json_object_get(body, "calleename");
 	v.callee_name = g_strdup(json_string_value(callee_name));
-	json_t *callerusername = g_strdup(json_object_get(body, "callerusername"));
-	v.caller_name = json_string_value(callerusername);
+	json_t *callerusername = json_object_get(body, "callerusername");
+	v.caller_name = g_strdup(json_string_value(callerusername));
 	if(relay != NULL){
 		v.relay = 1;
 	}
