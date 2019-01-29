@@ -318,12 +318,12 @@ int	janus_srtc_handle_call_init(janus_plugin_session *handle, char *transaction,
 	static janus_message_call_t  v;
 	//解析message 后生成V todo
 	json_t *username = json_object_get(message, "username");
-	v.caller_name = json_string_value(username);
+	v.caller_name = g_strdup(json_string_value(username));
 	json_t *relay = json_object_get(message, "relay");
 	json_t *body = json_object_get(message, "body");
 	v.jsep = json_object_get(body, "jsep");
 	json_t *callee_name = json_object_get(body, "calleename");
-	v.callee_name = json_string_value(callee_name);
+	v.callee_name = g_strdup(json_string_value(callee_name));
 	if(relay != NULL){
 		v.relay = 1;
 	}
@@ -337,8 +337,8 @@ int janus_srtc_handle_accept_init(janus_plugin_session *handle, char *transactio
 	json_t *body = json_object_get(message, "body");
 	v.jsep = json_object_get(body, "jsep");
 	json_t *callee_name = json_object_get(body, "calleename");
-	v.callee_name = json_string_value(callee_name);
-	json_t *callerusername = json_object_get(body, "callerusername");
+	v.callee_name = g_strdup(json_string_value(callee_name));
+	json_t *callerusername = g_strdup(json_object_get(body, "callerusername"));
 	v.caller_name = json_string_value(callerusername);
 	if(relay != NULL){
 		v.relay = 1;
@@ -351,7 +351,7 @@ int janus_srtc_handle_hangup_init(janus_plugin_session *handle, char *transactio
 	static janus_message_hangup_t  v;
 	//解析message 后生成V todo
 	json_t *username = json_object_get(message, "username");
-	v.username = json_string_value(username);
+	v.username = g_strdup(json_string_value(username));
 	return srtc_handle_hangup( handle, message, &v);
 }
 
@@ -435,11 +435,20 @@ typedef struct {
 static int
 	janus_srtc_core_handle_call(janus_plugin_session *handle, json_t *message, janus_message_call_t *v)
 {
+	if(v->callee_name)
+		g_free(v->callee_name);
+	if(v->caller_name)
+		g_free(v->caller_name);
 	return 0;
 }
 static int
 	janus_srtc_core_handle_accept(janus_plugin_session *handle, json_t *message, janus_message_accept_t *v)
 {
+	if(v->callee_name)
+		g_free(v->callee_name);
+	if(v->caller_name)
+		g_free(v->caller_name);
+
 	return 0;
 }
 void janus_srtc_core_destroy_session(janus_plugin_session *handle, int *error){
@@ -449,6 +458,9 @@ void janus_srtc_core_destroy_session(janus_plugin_session *handle, int *error){
 static int
 	janus_srtc_core_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
 {
+	if(v->username)
+		g_free(v->username);
+
 	return 0;
 }
 static int janus_srtc_core_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){

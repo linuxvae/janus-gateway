@@ -861,7 +861,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 	guint64 handle_id = session->ice_handle_id;
 
 	json_t *message = json_object_get(root, "srtc");
-	const gchar *message_text = json_string_value(message);
+	gchar *message_text = g_strdup(json_string_value(message));
 
 	if(handle == NULL) {
 		/* Query is an handle-level command */
@@ -1175,6 +1175,7 @@ static int  janus_deal_webrtc_message(janus_session *session, janus_ice_handle *
 	janus_plugin_result_destroy(result);
 
 jsondone:
+	g_free(message_text);
 	return ret;
 
 }
