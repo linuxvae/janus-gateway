@@ -57,10 +57,14 @@ static int
 		//find calleename_text in db
 		//找到一个合适的mediaserver
 		//通过性能比较等 IP: find_media_server() 设置 当前正在通话 且设置使用的mediaserver IP
-		char *relay_ip = "47.75.158.180";
+		//char *relay_ip = "47.75.158.180";
+		//int relay_port = 8188;
+		//char *media_ip = "47.75.213.83";
+		//int media_port = 8188;
+		char *media_ip= "47.75.158.180";
+		int media_port= 8188;
+		char *relay_ip= "47.75.213.83";
 		int relay_port = 8188;
-		char *media_ip = "47.75.213.83";
-		int media_port = 8188;
 
 		relay = json_object();
 		json_t *media = json_object();
@@ -89,7 +93,9 @@ static int
 		//find calleename_text in db
 		//找到一个合适的mediaserver
 		//IP: find_media_server_by_caller(callername_text)
-		char *media_ip = "47.75.213.83";
+		//char *media_ip = "47.75.213.83";
+		//int media_port = 8188;
+		char *media_ip = "47.75.158.180";
 		int media_port = 8188;
 
 		json_t *media = json_object();
