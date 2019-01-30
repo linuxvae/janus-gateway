@@ -1273,6 +1273,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	const gchar *plugin_text = "janus.plugin.srtc";
 	janus_plugin *plugin_t = janus_plugin_find(plugin_text);
 	if(plugin_t == NULL) {
+		JANUS_LOG(LOG_ERR, "plugin_t == NULL failed \n");
 		ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_PLUGIN_NOT_FOUND, "No such plugin '%s'", plugin_text);
 		goto srtcdone;
 	}
@@ -1282,7 +1283,8 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		(!signal_server && !strcasecmp(message_text, "call"))))){
 		session = janus_session_create_srtc(session_id, username_text);
 		if(session == NULL) {
-			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			JANUS_LOG(LOG_ERR, "janus_session_create_srtc failed \n");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "janus_session_create_srtc");
 			goto srtcdone;
 		}
 		session_id = session->session_id;
@@ -1305,7 +1307,8 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		}
 		handle = janus_ice_handle_create(session, NULL);
 		if(handle == NULL) {
-			ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
+			JANUS_LOG(LOG_ERR, "janus_ice_handle_create failed \n");
+			ret = janus_process_srtc_error(request, message_text,  session_id, transaction_text, JANUS_ERROR_UNKNOWN, "janus_ice_handle_create");
 			goto srtcdone;
 		}
 		handle_id = handle->handle_id;
@@ -1330,11 +1333,13 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		//创建对方的session和handle
 		session->peer_session = janus_session_create_srtc(0, calleeusername_text);
 		if(session == NULL) {
+			JANUS_LOG(LOG_ERR, "janus_session_create_srtc session == NULL failed \n");
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
 		session->peer_handle = janus_ice_handle_create(session->peer_session, NULL);
 		if(handle == NULL) {
+			JANUS_LOG(LOG_ERR, "janus_ice_handle_create handle == NULL failed \n");
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
 		}
@@ -1359,12 +1364,14 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		const gchar *callerusername_text = json_string_value(callerusername);
 		peer_session = janus_session_find_by_username(callerusername_text);
 		if(peer_session == NULL){
+			JANUS_LOG(LOG_ERR, "janus_session_find_by_username peer_session == NULL failed \n");
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
 			goto srtcdone;
 		}
 		session = peer_session->peer_session;
 		handle  = peer_session->peer_handle;
 		if(session == NULL || handle == NULL){
+			JANUS_LOG(LOG_ERR, "session == NULL || handle == NULL failed \n");
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
 			goto srtcdone;
 		}
@@ -1441,6 +1448,7 @@ SINGAL_SERVER:
 						g_strdup((char *)transaction_text), root, NULL);
 			if(result == NULL) {
 				/* Something went horribly wrong! */
+				JANUS_LOG(LOG_ERR, "handle_message error failed \n");
 				ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_PLUGIN_MESSAGE, "Plugin didn't give a result");
 				goto srtcdone;
 			}
