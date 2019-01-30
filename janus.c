@@ -1214,7 +1214,9 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		handle_id = json_integer_value(h);
 
 	janus_session *session = NULL;
-	janus_ice_handle *handle = NULL;	
+	janus_ice_handle *handle = NULL;
+	janus_session *peer_session = NULL;
+	janus_ice_handle *peer_handle = NULL;
 	int server_type = -1;
 
 	char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
@@ -1477,7 +1479,7 @@ Media_Server:
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 			goto srtcdone;
 		}
-		janus_session * peer_session = janus_session_find_by_username(session->peer_username);
+		janus_session_find_by_username(session->peer_username);
 		janus_mutex_lock(&sessions_mutex);
 		g_hash_table_remove(sessions, &session->session_id);
 		janus_mutex_unlock(&sessions_mutex);
@@ -1491,7 +1493,7 @@ Media_Server:
 
 		if(peer_session != NULL){
 			json_t *reply = janus_create_srtc_message("event", session_id, transaction_text);
-			json_object_set_new(reply, "eventtype", json_string("hangup"))
+			json_object_set_new(reply, "eventtype", json_string("hangup"));
 
 			/* Send the hangup to peer */
 			janus_session_notify_event(peer_session, reply);
@@ -1499,15 +1501,15 @@ Media_Server:
 			janus_mutex_lock(&sessions_mutex);
 			g_hash_table_remove(sessions, &peer_session->session_id);
 			janus_mutex_unlock(&sessions_mutex);
-			
-			/* Notify the source that the session has been destroyed */			
+
+			/* Notify the source that the session has been destroyed */
 			if(peer_session->source && peer_session->source->transport) {
 				peer_session->source->transport->session_over(peer_session->source->instance, peer_session->session_id, FALSE, FALSE);
 			}
 			/* Schedule the session for deletion */
 			janus_session_destroy(peer_session);
 		}
-		
+
 		json_t *reply = janus_create_srtc_response_message("response", message_text, 200, session_id, transaction_text);
 		/* Send the success reply */
 		ret = janus_process_success(request, reply);
@@ -1624,6 +1626,8 @@ srtcdone:
 		janus_refcount_decrease(&handle->ref);
 	if(session != NULL)
 		janus_refcount_decrease(&session->ref);
+	if(peer_session != NULL)
+				janus_refcount_decrease(&peer_session->ref);
 	return ret;
 }
 
