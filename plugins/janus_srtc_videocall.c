@@ -364,7 +364,8 @@ static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int 
 	}
 	if(ctx->gateway) {
 		/* Honour the audio/video active flags */
-		janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
+		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
+		//janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
 			return;
@@ -471,7 +472,8 @@ static int janus_srtc_video_call_incoming_rtcp(janus_plugin_session *handle, int
 		return srtc_incoming_rtcp_next(handle, video, buf,len);
 	}
 	if(ctx->gateway) {
-		janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
+		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
+		//janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
 			return;
@@ -506,7 +508,8 @@ static int janus_srtc_video_call_incoming_data(janus_plugin_session *handle, cha
 		return srtc_incoming_data_next(handle ,buf ,len);
 	}
 	if(ctx->gateway) {
-		janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
+		janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
+		//janus_srtc_videocall_session *session = (janus_srtc_videocall_session *)handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
 			return;
