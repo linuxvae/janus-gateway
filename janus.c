@@ -505,11 +505,11 @@ static void janus_session_free(const janus_refcount *session_ref) {
 		janus_request_destroy(session->source);
 		session->source = NULL;
 	}
-
+	JANUS_LOG(LOG_INFO, "janus_session_free  %"SCNu64". name : %s..\n", session->session_id, session->username);
 	janus_mutex_lock(&sessions_mutex);
 	g_hash_table_remove(name_sessions, session->username); //函数调用不要锁两次
 	janus_mutex_unlock(&sessions_mutex);
-
+	
 	if(session->peer_username)
 		g_free(session->peer_username);
 	if(session->username)
@@ -1267,6 +1267,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	}
 	if(session == NULL){
 		session = janus_session_find_by_username(username_text);
+		JANUS_LOG(LOG_INFO, "janus_session_find_by_username success %s \n", session->username);
 	}
 
 	//create handle
@@ -1338,7 +1339,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			goto srtcdone;
 		}
 		session->peer_handle = janus_ice_handle_create(session->peer_session, NULL);
-		if(handle == NULL) {
+		if(session->peer_handle == NULL) {
 			JANUS_LOG(LOG_ERR, "janus_ice_handle_create handle == NULL failed \n");
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "Memory error");
 			goto srtcdone;
