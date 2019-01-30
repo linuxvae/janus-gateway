@@ -71,7 +71,6 @@ typedef struct janus_srtc_videocall_session {
 static void janus_srtc_videocall_session_free(const janus_refcount *session_ref) {
 	janus_srtc_videocall_session *session = janus_refcount_containerof(session_ref, janus_srtc_videocall_session, ref);
 	/* Remove the reference to the core plugin session */
-	janus_refcount_decrease(&session->handle->ref);
 	/* This session can be destroyed, free all the resources */
 	g_free(session->username);
 	g_free(session);
