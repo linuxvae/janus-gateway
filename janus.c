@@ -1267,7 +1267,10 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	}
 	if(session == NULL){
 		session = janus_session_find_by_username(username_text);
-		JANUS_LOG(LOG_INFO, "janus_session_find_by_username success %s \n", session->username);
+		if(session){
+			JANUS_LOG(LOG_INFO, "janus_session_find_by_username success %s \n", session->username);
+		}
+		
 	}
 
 	//create handle
