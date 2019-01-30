@@ -1365,21 +1365,24 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		/* Is there an SDP attached? */
 		json_t *callerusername = json_object_get(body, "callerusername");
 		const gchar *callerusername_text = json_string_value(callerusername);
-		peer_session = janus_session_find_by_username(callerusername_text);
-		if(peer_session == NULL){
-			JANUS_LOG(LOG_ERR, "janus_session_find_by_username peer_session == NULL failed \n");
-			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
-			goto srtcdone;
-		}
-		session = peer_session->peer_session;
-		handle  = peer_session->peer_handle;
+		//peer_session = janus_session_find_by_username(callerusername_text);
+		//if(peer_session == NULL){
+		//	JANUS_LOG(LOG_ERR, "janus_session_find_by_username peer_session == NULL failed \n");
+		//	ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+		//	goto srtcdone;
+		//}
+		//session = peer_session->peer_session;
+		//handle  = peer_session->peer_handle;
 		if(session == NULL || handle == NULL){
 			JANUS_LOG(LOG_ERR, "session == NULL || handle == NULL failed \n");
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
 			goto srtcdone;
 		}
-		peer_session->peer_handle = NULL;
-		peer_session->peer_session = NULL;
+		//peer_session->peer_handle = NULL;
+		//peer_session->peer_session = NULL;
+		if(handle == NULL){
+			handle = janus_session_handles_find(session, session->ice_handle_id);
+		}
 		session_id = session->session_id;
 		janus_refcount_increase(&session->ref);
 		session->source = janus_request_new(request->transport, request->instance, NULL, FALSE, NULL);
@@ -1494,7 +1497,7 @@ Media_Server:
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 			goto srtcdone;
 		}
-		janus_session_find_by_username(session->peer_username);
+		peer_session = janus_session_find_by_username(session->peer_username);
 		janus_mutex_lock(&sessions_mutex);
 		g_hash_table_remove(sessions, &session->session_id);
 		janus_mutex_unlock(&sessions_mutex);
