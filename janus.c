@@ -599,10 +599,14 @@ janus_session *janus_session_create_srtc(guint64 session_id, char *username) {
 		}
 	}
 	session = (janus_session *)g_malloc(sizeof(janus_session));
+	memset(session, 0, sizeof(janus_session));
 	JANUS_LOG(LOG_INFO, "Creating new session: %"SCNu64"; %p\n", session_id, session);
 	session->session_id = session_id;
 	janus_refcount_init(&session->ref, janus_session_free);
 	session->source = NULL;
+	session->peer_username = NULL;
+	session->username = NULL;
+	
 	g_atomic_int_set(&session->destroyed, 0);
 	g_atomic_int_set(&session->timeout, 0);
 	g_atomic_int_set(&session->transport_gone, 0);
