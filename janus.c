@@ -1269,8 +1269,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		session = janus_session_find_by_username(username_text);
 		if(session){
 			JANUS_LOG(LOG_INFO, "janus_session_find_by_username success %s \n", session->username);
-		}
-		
+		}		
 	}
 
 	//create handle
@@ -1490,7 +1489,7 @@ Media_Server:
 	}else if(!strcasecmp(message_text, "call") ||!strcasecmp(message_text, "accept")){
 			janus_deal_webrtc_message(session, handle, request, transaction_text);
 	}else if(!strcasecmp(message_text, "hangup")){//删除session和handle
-		if(handle != NULL) {
+		if(handle == NULL) {
 			/* Query is a session-level command */
 			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 			goto srtcdone;
@@ -1793,7 +1792,7 @@ int janus_process_incoming_request_janus(janus_request *request) {
 		/* Send the success reply */
 		ret = janus_process_success(request, reply);
 	} else if(!strcasecmp(message_text, "attach")) {
-		if(handle != NULL) {
+		if(handle == NULL) {
 			/* Attach is a session-level command */
 			ret = janus_process_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 			goto jsondone;
@@ -1852,7 +1851,7 @@ int janus_process_incoming_request_janus(janus_request *request) {
 		/* Send the success reply */
 		ret = janus_process_success(request, reply);
 	} else if(!strcasecmp(message_text, "destroy")) {
-		if(handle != NULL) {
+		if(handle == NULL) {
 			/* Query is a session-level command */
 			ret = janus_process_error(request, session_id, transaction_text, JANUS_ERROR_INVALID_REQUEST_PATH, "Unhandled request '%s' at this path", message_text);
 			goto jsondone;
@@ -3723,49 +3722,49 @@ RSOK:
 
 json_t *plugin_handle_peer_sdp(
 	janus_plugin_session *plugin_session, json_t *jsep, gboolean restart) {
+	
 	json_t *merged_jsep = NULL;
+	janus_ice_handle *ice_handle = NULL;
+	janus_session *caller_session = NULL;
+	janus_ice_handle *caller_ice_handle = NULL;
+	janus_session *session= NULL;
 	if(!janus_plugin_session_is_alive(plugin_session) ||
 			jsep == NULL) {
 		JANUS_LOG(LOG_ERR, "Invalid arguments\n");
 		return NULL;
 	}
 	janus_refcount_increase(&plugin_session->ref);
-	janus_ice_handle *caller_ice_handle = (janus_ice_handle *)plugin_session->gateway_handle;
+	caller_ice_handle = (janus_ice_handle *)plugin_session->gateway_handle;
 	if(!caller_ice_handle){
 		JANUS_LOG(LOG_ERR, "ice_handle Invalid \n");
-		return NULL;
+		goto DONE;
 	}
 	janus_refcount_increase(&caller_ice_handle->ref);
-	janus_session *caller_session = caller_ice_handle->session;
+	caller_session = caller_ice_handle->session;
 	if(!caller_session || g_atomic_int_get(&caller_session->destroyed)) {
 		JANUS_LOG(LOG_ERR, "ice_handle Invalid \n");
-		janus_refcount_decrease(&plugin_session->ref);
-		janus_refcount_decrease(&caller_ice_handle->ref);
-		return NULL;
+		goto DONE;
 	}
+	janus_refcount_increase(&caller_session->ref);
 	const char *sdp_type = json_string_value(json_object_get(jsep, "type"));
 	const char *sdp = json_string_value(json_object_get(jsep, "sdp"));
-	janus_ice_handle *ice_handle = caller_session->peer_handle;
-	janus_session *session = caller_session->peer_session;
+	ice_handle = caller_session->peer_handle;
+	session = caller_session->peer_session;
 	if(ice_handle == NULL || session == NULL ){
 		JANUS_LOG(LOG_ERR, "session or ice_handle Invalid \n");
-		janus_refcount_decrease(&plugin_session->ref);
-		janus_refcount_decrease(&caller_ice_handle->ref);
-		return NULL;
+		goto DONE;
 	}
+	janus_refcount_increase(&ice_handle->ref);
+	janus_refcount_increase(&session->ref);
 	merged_jsep = janus_ice_handle_handle_sdp(ice_handle,sdp_type, sdp ,restart);
 	if(merged_jsep == NULL) {
 		if(ice_handle == NULL || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_STOP)
 				|| janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_ALERT)) {
 			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Cannot push event (handle not available anymore or negotiation stopped)\n", ice_handle->handle_id);
-			janus_refcount_decrease(&plugin_session->ref);
-			janus_refcount_decrease(&ice_handle->ref);
-			return NULL;
+			goto DONE;
 		} else {
 			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Cannot push event (JSON error: problem with the SDP)\n", ice_handle->handle_id);
-			janus_refcount_decrease(&plugin_session->ref);
-			janus_refcount_decrease(&ice_handle->ref);
-			return NULL;
+			goto DONE;
 		}
 	}
 
@@ -3774,9 +3773,18 @@ json_t *plugin_handle_peer_sdp(
 		/* We're restarting ICE, send our trickle candidates again */
 		janus_ice_resend_trickles(ice_handle);
 	}
+DONE:
+	if(plugin_session)
+		janus_refcount_decrease(&plugin_session->ref);
+	if(caller_session)
+		janus_refcount_decrease(&caller_session->ref);
+	if(caller_ice_handle)
+		janus_refcount_decrease(&caller_ice_handle->ref);
+	if(session)
+		janus_refcount_decrease(&session->ref);
+	if(ice_handle)
+		janus_refcount_decrease(&ice_handle->ref);
 
-	janus_refcount_decrease(&plugin_session->ref);
-	janus_refcount_decrease(&caller_ice_handle->ref);
 	return merged_jsep;
 
 }
