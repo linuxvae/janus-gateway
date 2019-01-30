@@ -381,23 +381,28 @@ struct janus_plugin_result *
 
 }
 void janus_srtc_setup_media(janus_plugin_session *handle){
+		JANUS_LOG(LOG_VERB,"janus_srtc_setup_media todo");
 
 }
 void janus_srtc_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
 
+	srtc_incoming_rtp(handle, video, buf, len);
+
 }
 void janus_srtc_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len){
-
+	srtc_incoming_rtcp(handle, video, buf, len);		
 }
 void janus_srtc_incoming_data(janus_plugin_session *handle, char *buf, int len){
-
+	srtc_incoming_data(handle, buf, len);
 }
 void janus_srtc_slow_link(janus_plugin_session *handle, int uplink, int video){
-
+	JANUS_LOG(LOG_VERB,"janus_srtc_slow_link todo");
+	//srtc_incoming_rtp()
 }
 void janus_srtc_hangup_media(janus_plugin_session *handle){
-
+	srtc_hangup_media(handle);
 }
+
 void janus_srtc_destroy_session(janus_plugin_session *handle, int *error){
 
 	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized)) {
