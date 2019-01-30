@@ -313,7 +313,7 @@ error:
 }
 
 static int
-	janus_srtc_video_call_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
+	janus_srtc_video_call_handle_hangup(janus_plugin_session *handle)
 {
 	if(signal_server){
 		return srtc_handle_hangup_next(handle);
@@ -332,12 +332,6 @@ static int
 		JANUS_LOG(LOG_VERB, "%s is hanging up the call with %s\n", session->username, peer->username);
 	}
 
-	/* Send SDP to our peer */
-	json_object_set_new(message, "eventtype", json_string("hangup"));
-	json_object_set_new(message, "srtc", json_string("event"));
-	//重组message 形成accept 的answer todo
-	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, NULL);
-
 	/* Check if we still need to remove any reference */
 	if(peer && g_atomic_int_compare_and_exchange(&peer->incall, 1, 0)) {
 		janus_refcount_decrease(&session->ref);
@@ -350,7 +344,6 @@ static int
 		json_t *hangup = json_object();
 		json_object_set_new(hangup, "srtc", json_string("event"));
 		json_object_set_new(hangup, "eventtype", json_string("hangup"));
-		json_object_set_new(hangup, "session_id", json_string(session->));
 		ctx->gateway->close_pc(peer->handle);
 		int ret =ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, hangup, NULL);
 		JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));

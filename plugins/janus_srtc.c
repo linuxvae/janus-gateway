@@ -465,11 +465,8 @@ void janus_srtc_core_destroy_session(janus_plugin_session *handle, int *error){
 }
 
 static int
-	janus_srtc_core_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
+	janus_srtc_core_handle_hangup(janus_plugin_session *handle)
 {
-	if(v->username)
-		g_free(v->username);
-
 	return 0;
 }
 static int janus_srtc_core_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
