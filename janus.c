@@ -1373,15 +1373,16 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		//}
 		//session = peer_session->peer_session;
 		//handle  = peer_session->peer_handle;
-		if(session == NULL || handle == NULL){
-			JANUS_LOG(LOG_ERR, "session == NULL || handle == NULL failed \n");
-			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
-			goto srtcdone;
-		}
+
 		//peer_session->peer_handle = NULL;
 		//peer_session->peer_session = NULL;
 		if(handle == NULL){
 			handle = janus_session_handles_find(session, session->ice_handle_id);
+		}
+		if(session == NULL || handle == NULL){
+			JANUS_LOG(LOG_ERR, "session == NULL || handle == NULL failed \n");
+			ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+			goto srtcdone;
 		}
 		session_id = session->session_id;
 		janus_refcount_increase(&session->ref);
