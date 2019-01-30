@@ -1641,8 +1641,8 @@ srtcdone:
 		janus_refcount_decrease(&handle->ref);
 	if(session != NULL)
 		janus_refcount_decrease(&session->ref);
-	if(peer_session != NULL)
-				janus_refcount_decrease(&peer_session->ref);
+	if(peer_session != NULL) 
+		janus_refcount_decrease(&peer_session->ref);
 	return ret;
 }
 
