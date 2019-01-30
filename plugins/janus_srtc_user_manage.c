@@ -102,10 +102,10 @@ static int
 }
 
 static int
-	janus_srtc_user_manage_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
+	janus_srtc_user_manage_handle_hangup(janus_plugin_session *handle)
 {
 	//清除db的状态且清除mediaserver
-	return srtc_handle_hangup_next(handle, message, v);
+	return srtc_handle_hangup_next(handle);
 }
 
 int janus_srtc_user_manage_destory_plugin(void *ctx_){

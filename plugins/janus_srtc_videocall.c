@@ -316,19 +316,20 @@ static int
 	janus_srtc_video_call_handle_hangup(janus_plugin_session *handle, json_t *message, janus_message_hangup_t *v)
 {
 	if(signal_server){
-		return srtc_handle_call_next(handle, message, v);
+		return srtc_handle_hangup_next(handle);
 	}
 	srtc_video_call_ctx_t *ctx = srtc_get_module_ctx(srtc_video_call_module);
 	if(ctx == NULL){
-		return srtc_handle_call_next(handle, message, v);
+		JANUS_LOG(LOG_ERR, "ctx == NULL...\n");
+		return srtc_handle_hangup_next(handle);
 	}
-	const char *hangup_text = v->reason;
 	janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
 	janus_srtc_videocall_session *peer = session->peer;
+	session->peer = NULL;
 	if(peer == NULL) {
 		JANUS_LOG(LOG_WARN, "No call to hangup\n");
 	} else {
-		JANUS_LOG(LOG_VERB, "%s is hanging up the call with %s (%s)\n", session->username, peer->username, hangup_text);
+		JANUS_LOG(LOG_VERB, "%s is hanging up the call with %s\n", session->username, peer->username);
 	}
 
 	/* Send SDP to our peer */
@@ -344,16 +345,37 @@ static int
 	if(g_atomic_int_compare_and_exchange(&session->incall, 1, 0) && peer) {
 		janus_refcount_decrease(&peer->ref);
 	}
+	if(peer){
+		/* Send event to our peer too */
+		json_t *hangup = json_object();
+		json_object_set_new(hangup, "srtc", json_string("event"));
+		json_object_set_new(hangup, "eventtype", json_string("hangup"));
+		json_object_set_new(hangup, "session_id", json_string(session->));
+		ctx->gateway->close_pc(peer->handle);
+		int ret =ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, hangup, NULL);
+		JANUS_LOG(LOG_VERB, "  >> Pushing event to peer: %d (%s)\n", ret, janus_get_api_error(ret));
+		json_decref(hangup);
+	}
 
 	//具体关闭流程有待完善
-
-	ctx->gateway->close_pc(session->handle);
-
-	ctx->gateway->close_pc(peer->handle);
-
-
-
-	return srtc_handle_call_next(handle, message, v);
+	/* Reset controls */
+	session->has_audio = FALSE;
+	session->has_video = FALSE;
+	session->has_data = FALSE;
+	session->audio_active = TRUE;
+	session->video_active = TRUE;
+	session->acodec = JANUS_AUDIOCODEC_NONE;
+	session->vcodec = JANUS_VIDEOCODEC_NONE;
+	session->bitrate = 0;
+	janus_rtp_switching_context_reset(&session->context);
+	janus_rtp_simulcasting_context_reset(&session->sim_context);
+	janus_vp8_simulcast_context_reset(&session->vp8_context);
+	if(g_atomic_int_compare_and_exchange(&session->incall, 1, 0) && peer) {
+		janus_refcount_decrease(&peer->ref);
+	}
+	janus_rtp_switching_context_reset(&session->context);
+	g_atomic_int_set(&session->hangingup, 0);	
+	return srtc_handle_hangup_next(handle);
 }
 static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
 	if(handle == NULL || g_atomic_int_get(&handle->stopped) )//|| g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))

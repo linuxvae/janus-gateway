@@ -83,14 +83,11 @@ typedef struct {
 } janus_message_accept_t;
 typedef	int (* srtc_handle_accept_pt)( janus_plugin_session *handle, json_t *message, janus_message_accept_t*v);
 
-typedef struct {
-	//有待完善
-	char *reason;//挂断原因
-	char *username;//挂断原因
-	int  relay; //是否转发到其他服务器
-	char *transaction;
-} janus_message_hangup_t;
-typedef	int (* srtc_handle_hangup_pt)( janus_plugin_session *handle, json_t *message, janus_message_hangup_t*v);
+
+typedef	int (* srtc_handle_hangup_pt)(janus_plugin_session *handle);
+
+
+
 
 typedef struct {
 	janus_plugin_session *handle;
@@ -109,12 +106,12 @@ extern srtc_handle_message_pt          srtc_handle_message;
 
 //以下函数 自己需要用到就自己定义
 
-extern srtc_create_session_pt       srtc_create_session;
-extern srtc_incoming_rtp_pt    srtc_incoming_rtp;
+extern srtc_create_session_pt    srtc_create_session;
+extern srtc_incoming_rtp_pt    	 srtc_incoming_rtp;
 extern srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
-extern srtc_incoming_data_pt srtc_incoming_data;
+extern srtc_incoming_data_pt 	 srtc_incoming_data;
 
-extern srtc_hangup_media_pt    srtc_hangup_media;
+//extern srtc_hangup_media_pt    srtc_hangup_media;
 extern srtc_destroy_session_pt          srtc_destroy_session;
 extern srtc_init_pt 	srtc_init;
 extern srtc_destroy_pt 	srtc_destroy;

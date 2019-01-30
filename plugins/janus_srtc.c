@@ -21,7 +21,7 @@ srtc_create_session_pt       srtc_create_session;
 srtc_incoming_rtp_pt    srtc_incoming_rtp;
 srtc_incoming_rtcp_pt     srtc_incoming_rtcp;
 srtc_incoming_data_pt srtc_incoming_data;
-srtc_hangup_media_pt    srtc_hangup_media;
+//srtc_hangup_media_pt    srtc_hangup_media;
 srtc_init_pt							srtc_init;
 srtc_destroy_pt						srtc_destroy;
 
@@ -197,8 +197,8 @@ static void *janus_srtc_handler(void *data) {
 			janus_srtc_handle_call_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "accept")){
 			janus_srtc_handle_accept_init(handle, transaction, root, jsep);
-		}else if(!strcasecmp(message_text, "hangup")){
-			janus_srtc_handle_hangup_init(handle, transaction, root, jsep);
+		//}else if(!strcasecmp(message_text, "hangup")){
+		//	janus_srtc_handle_hangup_init(handle, transaction, root, jsep);
 		}else if(!strcasecmp(message_text, "event")){//register or tricle
 			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
 			srtc_handle_message(handle, transaction, root, jsep);
@@ -208,6 +208,9 @@ static void *janus_srtc_handler(void *data) {
 			srtc_handle_message(handle, transaction, root, jsep);
 		}
 		else if(!strcasecmp(message_text, "trickle")){//register or tricle
+			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
+			srtc_handle_message(handle, transaction, root, jsep);
+		}else{
 			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
 			srtc_handle_message(handle, transaction, root, jsep);
 		}
@@ -346,6 +349,7 @@ int janus_srtc_handle_accept_init(janus_plugin_session *handle, char *transactio
 
 	return srtc_handle_accept( handle, message, &v);
 }
+/*
 int janus_srtc_handle_hangup_init(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
 {
 	static janus_message_hangup_t  v;
@@ -354,7 +358,7 @@ int janus_srtc_handle_hangup_init(janus_plugin_session *handle, char *transactio
 	v.username = g_strdup(json_string_value(username));
 	return srtc_handle_hangup( handle, message, &v);
 }
-
+*/
 
 struct janus_plugin_result *
 	janus_srtc_handle_message(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep)
@@ -400,7 +404,7 @@ void janus_srtc_slow_link(janus_plugin_session *handle, int uplink, int video){
 	//srtc_incoming_rtp()
 }
 void janus_srtc_hangup_media(janus_plugin_session *handle){
-	srtc_hangup_media(handle);
+	srtc_handle_hangup(handle);
 }
 
 void janus_srtc_destroy_session(janus_plugin_session *handle, int *error){

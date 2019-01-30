@@ -13,7 +13,6 @@
 
 static srtc_handle_call_pt          srtc_handle_call_next;
 static srtc_handle_accept_pt          srtc_handle_accept_next;
-static srtc_handle_hangup_pt          srtc_handle_hangup_next;
 static srtc_handle_message_pt          srtc_handle_message_next;
 static srtc_destroy_session_pt 			srtc_destroy_session_next;
 
@@ -351,24 +350,6 @@ static int
 	return srtc_handle_accept_next(handle, root, v);
 }
 
-static int
-	janus_srtc_relay_handle_hangup(janus_plugin_session *handle, json_t *root, janus_message_hangup_t *v)
-{
-	srtc_relay_message_session_t *session = srtc_get_module_session(handle, srtc_rlay_msg_module);
-	if(session == NULL){
-		return srtc_handle_hangup_next(handle, root, v);
-	}
-	
-	if(signal_server){//A/C通过websicket 发送
-		char *payload = json_dumps(root, json_format);
-		g_async_queue_push(session->messages, payload);
-		lws_callback_on_writable(session->wsi);
-	}else{
-		//stoping =1 删session
-	}
-	return srtc_handle_hangup_next(handle, root, v);
-}
-
 static char *janus_websockets_get_interface_name(const char *ip) {
 	struct ifaddrs *addrs = NULL, *iap = NULL;
 	if(getifaddrs(&addrs) == -1)
@@ -588,7 +569,7 @@ int janus_srtc_relay_handle_relay(janus_plugin_session *handle, char *transactio
 		}
 	}
 	if(handle->srtc_type == SERVER_A|| handle->srtc_type == SERVER_C){
-		if(!strcasecmp(root_text, "trickle")){
+		if(!strcasecmp(root_text, "trickle") || !strcasecmp(root_text, "hangup")){
 			char *payload = json_dumps(message, json_format);
 			JANUS_LOG(LOG_WARN, "relay_message %s\n", payload);
 			g_async_queue_push(session->messages, payload);
@@ -646,9 +627,6 @@ void* janus_srtc_relay_pre_create_plugin(janus_callbacks *callback, const char *
 
 	srtc_handle_accept_next = srtc_handle_accept;
 	srtc_handle_accept = janus_srtc_relay_handle_accept;
-
-	srtc_handle_hangup_next = srtc_handle_hangup;
-	srtc_handle_hangup = janus_srtc_relay_handle_hangup;
 
 	srtc_handle_call_next = srtc_handle_call;
 	srtc_handle_call = janus_srtc_relay_handle_call;
