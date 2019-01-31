@@ -1385,7 +1385,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 			goto srtcdone;
 		}
 		session_id = session->session_id;
-		janus_refcount_increase(&session->ref);
 		session->source = janus_request_new(request->transport, request->instance, NULL, FALSE, NULL);
 		request->transport->session_created(request->instance, session->session_id);
 		if(janus_events_is_enabled()) {
@@ -1401,9 +1400,6 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		handle_id = handle->handle_id;
 		session->ice_handle_id = handle->handle_id;
 		/* We increase the counter as this request is using the handle */
-		janus_refcount_increase(&handle->ref);
-
-
 	}
 
 
