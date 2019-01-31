@@ -222,6 +222,7 @@ static int
 		ctx->gateway->close_pc(session->handle);
 		goto error;
 	}
+	janus_mutex_unlock(&ctx->sessions_mutex);
 	session->peer = peer;
 	peer->peer = session;
 	/* If the call attempt proceeds we keep the references */
