@@ -155,10 +155,13 @@ static void *janus_srtc_handler(void *data) {
 	while(g_atomic_int_get(&initialized) && !g_atomic_int_get(&stopping)) {
 		srtc_msg = g_async_queue_pop(messages);
 		if(srtc_msg == NULL)
+			JANUS_LOG(LOG_ERR, "srtc_msg == NULL ...\n");
 			continue;
 		if(srtc_msg == &exit_message)
+			JANUS_LOG(LOG_ERR, "srtc_msg == &exit_message ...\n");
 			break;
-		if(srtc_msg->handle == NULL) {
+		if(srtc_msg->handle == NULL) {		
+			JANUS_LOG(LOG_ERR, "srtc_msg->handle == NULL...\n");
 			janus_srtc_message_free(srtc_msg);
 			continue;
 		}
@@ -169,12 +172,18 @@ static void *janus_srtc_handler(void *data) {
 			continue;
 		}
 		if(g_atomic_int_get(&session->destroyed)) {
+			JANUS_LOG(LOG_ERR, "session->destroyed...\n");
 			janus_srtc_message_free(srtc_msg);
 			continue;
 		}
 		error_code = 0;
 		root = srtc_msg->message;
 		json_t *jsep = srtc_msg->jsep;
+
+		char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+		JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
+		
+		
 		char *transaction = srtc_msg->transaction;
 		janus_plugin_session *handle = srtc_msg->handle;
 		if(srtc_msg->message == NULL) {
@@ -217,6 +226,7 @@ static void *janus_srtc_handler(void *data) {
 		
 		/* All the requests to this plugin are handled asynchronously */
 error:
+		g_free(root_text);
 		janus_srtc_message_free(srtc_msg);
 		continue;
 	}
