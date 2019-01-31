@@ -1402,7 +1402,11 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		/* We increase the counter as this request is using the handle */
 	}
 
-
+	if(session == NULL){
+		JANUS_LOG(LOG_ERR, "session == NULL \n");
+		ret = janus_process_srtc_error(request, message_text, session_id, transaction_text, JANUS_ERROR_UNKNOWN, "session not found");
+		goto srtcdone;
+	}
 	session_id = session->session_id;
 	/* Update the last activity timer */
 	session->last_activity = janus_get_monotonic_time();
