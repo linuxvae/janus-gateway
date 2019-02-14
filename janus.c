@@ -1272,6 +1272,7 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 		}		
 	}
 
+	
 	//create handle
 	const gchar *plugin_text = "janus.plugin.srtc";
 	janus_plugin *plugin_t = janus_plugin_find(plugin_text);
@@ -1423,6 +1424,17 @@ int janus_process_incoming_request_srtc(janus_request *request) {
 	if(handle->app_handle->srtc_type == -1){
 		handle->app_handle->srtc_type = server_type;
 	}
+
+	if(!strcasecmp(message_text, "keepalive")) {
+		/* Just a keep-alive message, reply with an ack */
+		JANUS_LOG(LOG_VERB, "Got a keep-alive on session %"SCNu64"\n", session_id);
+		json_t *reply = janus_create_srtc_message("ack", 0, transaction_text);
+		/* Send the success reply */
+		ret = janus_process_success(request, reply);
+		goto srtcdone;
+	} 
+
+	
 SINGAL_SERVER:
 	if(signal_server == TRUE){
 		if(!strcasecmp(message_text, "unregister")){
