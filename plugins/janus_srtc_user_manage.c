@@ -24,9 +24,12 @@ srtc_module_t srtc_user_manage_module = {
 };
 
 extern gboolean signal_server;
+extern janus_plugin janus_srtc_plugin ;
+
 
 typedef struct {
 	//存储相关模块的配置信息
+	janus_callbacks *gateway;
 }srtc_user_manage_ctx_t;
 
 typedef struct janus_srtc_user_manage_session {
@@ -123,6 +126,8 @@ int janus_srtc_user_manage_destory_plugin(void *ctx_){
 int janus_srtc_user_manage_handle_register(janus_plugin_session *handle, char *transaction, json_t *message, json_t *jsep){
 	//1、判断appkey的合法性
 	//2、存储username 和当前服务器的外网IP
+	int status_code=200;
+	json_t *msg = json_object();
 	json_t *root = json_object_get(message, "srtc");
 	const gchar *root_text = json_string_value(root);
 	if(strcasecmp(root_text, "register")!= 0){
@@ -132,6 +137,19 @@ int janus_srtc_user_manage_handle_register(janus_plugin_session *handle, char *t
 	const gchar *username_text = json_string_value(username);
 	char *public_ip = janus_get_public_ip();
 	//存储
+	
+	srtc_user_manage_ctx_t *user_manage_ctx = srtc_get_module_ctx(srtc_user_manage_module);
+	if(user_manage_ctx == NULL || user_manage_ctx->gateway== NULL){
+		JANUS_LOG(LOG_ERR, "user_manage_ctx srtc_get_module_ctx failed!\n");
+		status_code = 400;
+		json_object_set_new(msg, "errmsg", json_string("server error"));
+	}
+	
+	json_object_set_new(msg, "srtc", json_string("response"));
+	json_object_set_new(msg, "responsetype", json_string("register"));
+	json_object_set_new(msg, "responsecode", json_string(status_code));
+	json_object_set_new(msg, "transaction", json_string(transaction));
+	user_manage_ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, msg, NULL);
 
 	return 0;
 }
@@ -147,6 +165,7 @@ void* janus_srtc_user_manage_create_plugin(janus_callbacks *callback, const char
 	srtc_handle_message = janus_srtc_user_manage_handle_register;
 	srtc_user_manage_ctx_t *ctx =(srtc_user_manage_ctx_t*)g_malloc(sizeof(srtc_user_manage_ctx_t));
 	memset(ctx, 0,sizeof(srtc_user_manage_ctx_t));
+	ctx->gateway = callback;
 	return ctx;
 }
 

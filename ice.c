@@ -2262,7 +2262,7 @@ static void janus_ice_cb_nice_recv(NiceAgent *agent, guint stream_id, guint comp
 					header = (janus_rtp_header *)buf;
 				}
 				/* Check if we need to handle transport wide cc */
-				if(stream->do_transport_wide_cc) {
+				if(stream->do_transport_wide_cc) {//https://tools.ietf.org/html/draft-holmer-rmcat-transport-wide-cc-extensions-01#section-3
 					guint16 transport_seq_num;
 					/* Get transport wide seq num */
 					if(janus_rtp_header_extension_parse_transport_wide_cc(buf, buflen, stream->transport_wide_cc_ext_id, &transport_seq_num)==0) {
@@ -2681,7 +2681,7 @@ static void janus_ice_cb_nice_recv(NiceAgent *agent, guint stream_id, guint comp
 							pkt->length = p->length;
 							pkt->type = video ? JANUS_ICE_PACKET_VIDEO : JANUS_ICE_PACKET_AUDIO;
 							pkt->control = FALSE;
-							pkt->retransmission = TRUE;
+							pkt->retransmission = TRUE;//标记为重发的包 不需要加入到nack的队列中了
 							pkt->added = janus_get_monotonic_time();
 							/* What to send and how depends on whether we're doing RFC4588 or not */
 							if(!video || !janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_RFC4588_RTX)) {
