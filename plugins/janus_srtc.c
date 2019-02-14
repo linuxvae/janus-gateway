@@ -182,6 +182,8 @@ static void *janus_srtc_handler(void *data) {
 		root = srtc_msg->message;
 		json_t *jsep = srtc_msg->jsep;
 
+		JANUS_LOG(LOG_INFO, "QUEUE %d...\n", g_async_queue_length);
+
 		char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 		JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
 
@@ -395,7 +397,7 @@ struct janus_plugin_result *
 		char *root_text = json_dumps(message, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 		JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
 		g_free(root_text);
-
+		JANUS_LOG(LOG_INFO, "QUEUE %d...\n", g_async_queue_length);
 		/* All the requests to this plugin are handled asynchronously */
 		return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
 
