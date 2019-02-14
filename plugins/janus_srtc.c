@@ -154,19 +154,19 @@ static void *janus_srtc_handler(void *data) {
 	json_t *root = NULL;
 	while(g_atomic_int_get(&initialized) && !g_atomic_int_get(&stopping)) {
 		srtc_msg = g_async_queue_pop(messages);
-		/*
-		if(srtc_msg == NULL)
+		if(srtc_msg == NULL){
 			JANUS_LOG(LOG_ERR, "srtc_msg == NULL ...\n");
 			continue;
-		if(srtc_msg == &exit_message)
+			}
+		if(srtc_msg == &exit_message){
 			JANUS_LOG(LOG_ERR, "srtc_msg == &exit_message ...\n");
 			break;
+			}
 		if(srtc_msg->handle == NULL) {
 			JANUS_LOG(LOG_ERR, "srtc_msg->handle == NULL...\n");
 			janus_srtc_message_free(srtc_msg);
 			continue;
 		}
-		*/
 		janus_srtc_session_t *session = (janus_srtc_session_t *)srtc_msg->handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
