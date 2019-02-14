@@ -74,6 +74,7 @@ static void janus_srtc_videocall_session_free(const janus_refcount *session_ref)
 	/* This session can be destroyed, free all the resources */
 	g_free(session->username);
 	g_free(session);
+	session = NULL;
 }
 
 static void janus_srtc_videocall_session_destroy(janus_srtc_videocall_session *session) {
