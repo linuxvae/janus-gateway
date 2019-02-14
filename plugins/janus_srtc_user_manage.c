@@ -137,17 +137,17 @@ int janus_srtc_user_manage_handle_register(janus_plugin_session *handle, char *t
 	const gchar *username_text = json_string_value(username);
 	char *public_ip = janus_get_public_ip();
 	//存储
-	
+
 	srtc_user_manage_ctx_t *user_manage_ctx = srtc_get_module_ctx(srtc_user_manage_module);
 	if(user_manage_ctx == NULL || user_manage_ctx->gateway== NULL){
 		JANUS_LOG(LOG_ERR, "user_manage_ctx srtc_get_module_ctx failed!\n");
 		status_code = 400;
 		json_object_set_new(msg, "errmsg", json_string("server error"));
 	}
-	
+
 	json_object_set_new(msg, "srtc", json_string("response"));
 	json_object_set_new(msg, "responsetype", json_string("register"));
-	json_object_set_new(msg, "responsecode", json_string(status_code));
+	json_object_set_new(msg, "responsecode", json_integer(status_code));
 	json_object_set_new(msg, "transaction", json_string(transaction));
 	user_manage_ctx->gateway->push_event(handle, &janus_srtc_plugin, NULL, msg, NULL);
 
