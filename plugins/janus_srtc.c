@@ -162,7 +162,7 @@ static void *janus_srtc_handler(void *data) {
 			JANUS_LOG(LOG_ERR, "srtc_msg == &exit_message ...\n");
 			break;
 			}
-		if(srtc_msg->handle == NULL) {		
+		if(srtc_msg->handle == NULL) {
 			JANUS_LOG(LOG_ERR, "srtc_msg->handle == NULL...\n");
 			janus_srtc_message_free(srtc_msg);
 			continue;
@@ -184,8 +184,8 @@ static void *janus_srtc_handler(void *data) {
 
 		char *root_text = json_dumps(root, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
 		JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
-		
-		
+
+
 		char *transaction = srtc_msg->transaction;
 		janus_plugin_session *handle = srtc_msg->handle;
 		if(srtc_msg->message == NULL) {
@@ -225,7 +225,7 @@ static void *janus_srtc_handler(void *data) {
 			JANUS_LOG(LOG_ERR, "event message %s...\n", message_text);
 			srtc_handle_message(handle, transaction, root, jsep);
 		}
-		
+
 		/* All the requests to this plugin are handled asynchronously */
 error:
 		g_free(root_text);
@@ -392,6 +392,9 @@ struct janus_plugin_result *
 		msg->message = message;
 		msg->jsep = jsep;
 		g_async_queue_push(messages, msg);
+		char *root_text = json_dumps(message, JSON_INDENT(3) | JSON_PRESERVE_ORDER);
+		JANUS_LOG(LOG_ERR, "root message %sp...\n", root_text);
+		g_free(root_text);
 
 		/* All the requests to this plugin are handled asynchronously */
 		return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
@@ -407,7 +410,7 @@ void janus_srtc_incoming_rtp(janus_plugin_session *handle, int video, char *buf,
 
 }
 void janus_srtc_incoming_rtcp(janus_plugin_session *handle, int video, char *buf, int len){
-	srtc_incoming_rtcp(handle, video, buf, len);		
+	srtc_incoming_rtcp(handle, video, buf, len);
 }
 void janus_srtc_incoming_data(janus_plugin_session *handle, char *buf, int len){
 	srtc_incoming_data(handle, buf, len);
