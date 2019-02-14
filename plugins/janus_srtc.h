@@ -40,6 +40,7 @@ extern srtc_module_t* srtc_modules[];
 
 #define srtc_get_module_ctx(module)  (srtc_modules[module.srtc_module_index])->mod_ctx
 #define srtc_get_module_session(handle, module) \
+	(handle == NULL || handle->plugin_handle==NULL)?NULL:\
 	((janus_srtc_session_t*)handle->plugin_handle)->mod_srtc_sessions[module.srtc_module_index]
 #define srtc_set_module_session(handle, module, session)  \
 	((janus_srtc_session_t*)handle->plugin_handle)->mod_srtc_sessions[module.srtc_module_index] = session;
