@@ -145,7 +145,7 @@ static int
 		goto error;
 	}
 
-	
+
 	return srtc_handle_call_next(handle, message, v);
 error:
 	JANUS_LOG(LOG_VERB, "Leaving VideoCall handler thread error \n");
@@ -292,7 +292,7 @@ static int
 	/* Send SDP to our peer */
 	json_object_set_new(message, "eventtype", json_string("accept"));
 	json_object_set_new(message, "srtc", json_string("event"));
-	
+
 	//重组message 形成accept 的answer todo
 	int ret = ctx->gateway->push_event(peer->handle, &janus_srtc_plugin, NULL, message, v->jsep);
 
@@ -324,6 +324,10 @@ static int
 		return srtc_handle_hangup_next(handle);
 	}
 	janus_srtc_videocall_session *session = srtc_get_module_session(handle, srtc_video_call_module);
+	if (!session){
+		JANUS_LOG(LOG_ERR, "session== NULL...\n");
+		return srtc_handle_hangup_next(handle);
+	}
 	janus_srtc_videocall_session *peer = session->peer;
 	session->peer = NULL;
 	if(peer == NULL) {
@@ -367,7 +371,7 @@ static int
 		janus_refcount_decrease(&peer->ref);
 	}
 	janus_rtp_switching_context_reset(&session->context);
-	g_atomic_int_set(&session->hangingup, 0);	
+	g_atomic_int_set(&session->hangingup, 0);
 	return srtc_handle_hangup_next(handle);
 }
 static int janus_srtc_video_call_incoming_rtp(janus_plugin_session *handle, int video, char *buf, int len){
@@ -594,7 +598,7 @@ int janus_srtc_video_call_handle_message(janus_plugin_session *handle, char *tra
 }
 
 void janus_srtc_video_call_destroy_session(janus_plugin_session *handle, int *error){
-	
+
 	return 0;
 }
 
